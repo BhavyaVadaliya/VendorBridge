@@ -162,29 +162,31 @@ export default function Approvals() {
               <div className="flex flex-row items-start justify-between max-w-3xl mx-auto px-4">
                 
                 <div className="flex flex-col items-center gap-2 relative z-10 w-24">
-                  <div className="w-8 h-8 rounded-full border border-gray-800 bg-white flex items-center justify-center text-sm text-gray-800">1</div>
-                  <span className="text-[11px] text-gray-800 text-center">Submitted</span>
+                  <div className="w-8 h-8 rounded-full border border-green-500 bg-green-500 flex items-center justify-center text-sm text-white">
+                    <Check className="w-4 h-4" />
+                  </div>
+                  <span className="text-[11px] text-green-600 font-semibold text-center">Submitted</span>
                 </div>
                 
-                <div className="flex-1 h-px bg-gray-800 mt-4 -mx-8 z-0" />
+                <div className="flex-1 h-px bg-gray-300 mt-4 -mx-8 z-0" />
                 
                 <div className="flex flex-col items-center gap-2 relative z-10 w-24">
-                  <div className="w-8 h-8 rounded-full border border-gray-800 bg-white flex items-center justify-center text-sm text-gray-800">2</div>
-                  <span className="text-[11px] text-gray-800 text-center">L1 Review</span>
+                  <div className="w-8 h-8 rounded-full border border-[#fce45c] bg-[#fce45c] flex items-center justify-center text-sm font-bold text-gray-900">2</div>
+                  <span className="text-[11px] text-gray-900 font-bold text-center">L1 Review</span>
                 </div>
 
-                <div className="flex-1 h-px bg-gray-800 mt-4 -mx-8 z-0" />
+                <div className="flex-1 h-px bg-gray-300 mt-4 -mx-8 z-0" />
 
                 <div className="flex flex-col items-center gap-2 relative z-10 w-24">
-                  <div className="w-8 h-8 rounded-full border border-[#fce45c] bg-[#fce45c] flex items-center justify-center text-sm font-medium text-gray-900">3</div>
-                  <span className="text-[11px] text-blue-500 font-medium text-center">L2 approval</span>
+                  <div className="w-8 h-8 rounded-full border border-gray-300 bg-white flex items-center justify-center text-sm text-gray-400">3</div>
+                  <span className="text-[11px] text-gray-400 text-center">L2 approval</span>
                 </div>
 
-                <div className="flex-1 h-px bg-gray-800 mt-4 -mx-8 z-0" />
+                <div className="flex-1 h-px bg-gray-300 mt-4 -mx-8 z-0" />
 
                 <div className="flex flex-col items-center gap-2 relative z-10 w-24">
-                  <div className="w-8 h-8 rounded-full border border-gray-800 bg-white flex items-center justify-center text-sm text-gray-800">4</div>
-                  <span className="text-[11px] text-gray-800 text-center">Generate PO</span>
+                  <div className="w-8 h-8 rounded-full border border-gray-300 bg-white flex items-center justify-center text-sm text-gray-400">4</div>
+                  <span className="text-[11px] text-gray-400 text-center">Generate PO</span>
                 </div>
                 
               </div>

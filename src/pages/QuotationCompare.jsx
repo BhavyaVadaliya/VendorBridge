@@ -10,6 +10,7 @@ export default function QuotationCompare() {
   const [quotations, setQuotations] = useState([])
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [selectedVendorId, setSelectedVendorId] = useState(null)
 
   // Exact mock data matching the Excalidraw Screen 7 mockup
   const MOCK_VENDORS = [
@@ -56,7 +57,25 @@ export default function QuotationCompare() {
           .from('quotations')
           .select('*, vendors(*)')
           .eq('rfq_id', rfqsData[0].id)
-        if (quotesData) setQuotations(quotesData)
+        if (quotesData) {
+          setQuotations(quotesData)
+          if (quotesData.length > 0) {
+            let minPrice = Infinity
+            let lowestId = quotesData[0].id
+            quotesData.forEach(q => {
+              const price = Number(q.total_price)
+              if (price < minPrice) {
+                minPrice = price
+                lowestId = q.id
+              }
+            })
+            setSelectedVendorId(lowestId)
+          } else {
+            setSelectedVendorId('1')
+          }
+        } else {
+          setSelectedVendorId('1')
+        }
       }
       setLoading(false)
     }
@@ -88,6 +107,8 @@ export default function QuotationCompare() {
       }
     })
   }
+
+  const selectedVendor = displayVendors.find(v => v.id === selectedVendorId)
 
   const handleApprove = async (vendorData) => {
     if (!selectedRfq) return
@@ -169,80 +190,132 @@ export default function QuotationCompare() {
                     <th className="border border-gray-300 p-4 font-semibold text-gray-800 text-left bg-white min-w-[150px]">
                       Criteria
                     </th>
-                    {displayVendors.map((vendor, idx) => (
-                      <th
-                        key={idx}
-                        className={`border border-gray-300 p-4 font-semibold min-w-[180px] ${
-                          vendor.isLowestPrice ? 'bg-[#5ee173] text-black' : 'bg-white text-gray-800'
-                        }`}
-                      >
-                        {vendor.name} {vendor.isLowestPrice ? '(Lowest)' : ''}
-                      </th>
-                    ))}
+                    {displayVendors.map((vendor, idx) => {
+                      const isSelected = selectedVendorId === vendor.id
+                      return (
+                        <th
+                          key={idx}
+                          className={`border border-gray-300 p-4 font-semibold min-w-[180px] ${
+                            isSelected ? 'bg-[#5ee173] text-black' : 'bg-white text-gray-800'
+                          }`}
+                        >
+                          {vendor.name} {vendor.isLowestPrice ? '(Lowest)' : ''}
+                        </th>
+                      )
+                    })}
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
                     <td className="border border-gray-300 p-4 text-left font-medium text-gray-700">Grand Total</td>
-                    {displayVendors.map((vendor, idx) => (
-                      <td key={idx} className={`border border-gray-300 p-4 text-gray-900 ${vendor.isLowestPrice ? 'bg-[#5ee173]' : ''}`}>
-                        {vendor.grandTotal}
-                      </td>
-                    ))}
+                    {displayVendors.map((vendor, idx) => {
+                      const isSelected = selectedVendorId === vendor.id
+                      return (
+                        <td key={idx} className={`border border-gray-300 p-4 text-gray-900 ${isSelected ? 'bg-[#5ee173]' : ''}`}>
+                          {vendor.grandTotal}
+                        </td>
+                      )
+                    })}
                   </tr>
                   <tr>
                     <td className="border border-gray-300 p-4 text-left font-medium text-gray-700">GST %</td>
-                    {displayVendors.map((vendor, idx) => (
-                      <td key={idx} className={`border border-gray-300 p-4 text-gray-900 ${vendor.isLowestPrice ? 'bg-[#5ee173]' : ''}`}>
-                        {vendor.gst}
-                      </td>
-                    ))}
+                    {displayVendors.map((vendor, idx) => {
+                      const isSelected = selectedVendorId === vendor.id
+                      return (
+                        <td key={idx} className={`border border-gray-300 p-4 text-gray-900 ${isSelected ? 'bg-[#5ee173]' : ''}`}>
+                          {vendor.gst}
+                        </td>
+                      )
+                    })}
                   </tr>
                   <tr>
                     <td className="border border-gray-300 p-4 text-left font-medium text-gray-700">Delivery (days)</td>
-                    {displayVendors.map((vendor, idx) => (
-                      <td key={idx} className={`border border-gray-300 p-4 text-gray-900 ${vendor.isLowestPrice ? 'bg-[#5ee173]' : ''}`}>
-                        {vendor.delivery}
-                      </td>
-                    ))}
+                    {displayVendors.map((vendor, idx) => {
+                      const isSelected = selectedVendorId === vendor.id
+                      return (
+                        <td key={idx} className={`border border-gray-300 p-4 text-gray-900 ${isSelected ? 'bg-[#5ee173]' : ''}`}>
+                          {vendor.delivery}
+                        </td>
+                      )
+                    })}
                   </tr>
                   <tr>
                     <td className="border border-gray-300 p-4 text-left font-medium text-gray-700">Vendor rating</td>
-                    {displayVendors.map((vendor, idx) => (
-                      <td key={idx} className={`border border-gray-300 p-4 text-gray-900 ${vendor.isLowestPrice ? 'bg-[#5ee173]' : ''}`}>
-                        {vendor.rating}
-                      </td>
-                    ))}
+                    {displayVendors.map((vendor, idx) => {
+                      const isSelected = selectedVendorId === vendor.id
+                      return (
+                        <td key={idx} className={`border border-gray-300 p-4 text-gray-900 ${isSelected ? 'bg-[#5ee173]' : ''}`}>
+                          {vendor.rating}
+                        </td>
+                      )
+                    })}
                   </tr>
                   <tr>
                     <td className="border border-gray-300 p-4 text-left font-medium text-gray-700">Payment terms</td>
-                    {displayVendors.map((vendor, idx) => (
-                      <td key={idx} className={`border border-gray-300 p-4 text-gray-900 ${vendor.isLowestPrice ? 'bg-[#5ee173]' : ''}`}>
-                        {vendor.terms}
-                      </td>
-                    ))}
+                    {displayVendors.map((vendor, idx) => {
+                      const isSelected = selectedVendorId === vendor.id
+                      return (
+                        <td key={idx} className={`border border-gray-300 p-4 text-gray-900 ${isSelected ? 'bg-[#5ee173]' : ''}`}>
+                          {vendor.terms}
+                        </td>
+                      )
+                    })}
                   </tr>
                   <tr>
-                    <td className="border border-gray-300 p-4 bg-white"></td>
-                    {displayVendors.map((vendor, idx) => (
-                      <td key={idx} className={`border border-gray-300 p-4 ${vendor.isLowestPrice ? 'bg-[#5ee173]' : ''}`}>
-                        <button
-                          onClick={() => handleApprove(vendor)}
-                          disabled={submitting}
-                          className={`px-5 py-2 rounded-md border text-sm font-medium transition ${
-                            vendor.isLowestPrice 
-                              ? 'border-gray-900 text-gray-900 hover:bg-[#4bcc62]' 
-                              : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                    <td className="border border-gray-300 p-4 text-left font-medium text-gray-700 bg-white">Selection</td>
+                    {displayVendors.map((vendor, idx) => {
+                      const isSelected = selectedVendorId === vendor.id
+                      return (
+                        <td 
+                          key={idx} 
+                          onClick={() => setSelectedVendorId(vendor.id)}
+                          className={`border border-gray-300 p-4 cursor-pointer transition-colors ${
+                            isSelected ? 'bg-[#5ee173]' : 'hover:bg-gray-50 bg-white'
                           }`}
                         >
-                          {vendor.isLowestPrice ? 'Select & Approve' : 'Select'}
-                        </button>
-                      </td>
-                    ))}
+                          <div className="flex items-center justify-center gap-2">
+                            <input
+                              type="radio"
+                              name="vendor-selection"
+                              checked={isSelected}
+                              onChange={() => setSelectedVendorId(vendor.id)}
+                              className="w-4 h-4 text-green-600 focus:ring-green-500 border-gray-300 cursor-pointer"
+                            />
+                            <span className={`text-xs font-semibold ${isSelected ? 'text-gray-900' : 'text-gray-500'}`}>
+                              {isSelected ? 'Selected' : 'Select'}
+                            </span>
+                          </div>
+                        </td>
+                      )
+                    })}
                   </tr>
                 </tbody>
               </table>
             </div>
+
+            {/* Common Approve Button */}
+            {selectedVendor && (
+              <div className="mt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-4 border-t border-gray-200">
+                <div className="text-sm text-gray-600">
+                  Selected supplier: <span className="font-semibold text-gray-900">{selectedVendor.name}</span>
+                  <span className="ml-2 px-2 py-0.5 rounded bg-gray-100 font-mono text-xs">₹{Number(selectedVendor.grandTotal).toLocaleString('en-IN')}</span>
+                </div>
+                <button
+                  onClick={() => handleApprove(selectedVendor)}
+                  disabled={submitting}
+                  className="px-6 py-2.5 bg-green-500 text-white rounded-lg text-sm font-semibold hover:bg-green-600 transition-colors shadow-sm disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  {submitting ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span>Approving...</span>
+                    </>
+                  ) : (
+                    <span>Approve Selected Quotation</span>
+                  )}
+                </button>
+              </div>
+            )}
 
             <div className="mt-4 text-[#ef4444] text-sm italic">
               Green = lowest price, selecting vendor initiates the approval workflow.
