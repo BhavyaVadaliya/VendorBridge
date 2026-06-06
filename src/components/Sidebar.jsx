@@ -39,7 +39,7 @@ export default function Sidebar() {
       if (user) {
         const { data, error } = await supabase
           .from('profiles')
-          .select('full_name, role, permissions')
+          .select('*')
           .eq('id', user.id)
           .single()
         
