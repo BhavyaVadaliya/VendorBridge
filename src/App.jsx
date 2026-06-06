@@ -12,7 +12,7 @@ import ActivityLogs from './pages/ActivityLogs'
 import Reports from './pages/Reports'
 import ProtectedRoute from './components/ProtectedRoute'
 import { AuthProvider } from './context/AuthContext'
-import AdminPanel from './pages/AdminPanel'
+import SuperAdminPanel from './pages/SuperAdminPanel'
 
 export default function App() {
   return (
@@ -97,11 +97,9 @@ export default function App() {
           }
         />
         <Route
-          path="/admin"
+          path="/super-admin-panel"
           element={
-            <ProtectedRoute>
-              <AdminPanel />
-            </ProtectedRoute>
+            <SuperAdminPanel />
           }
         />
       </Routes>

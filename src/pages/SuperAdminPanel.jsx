@@ -1,30 +1,34 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import Layout from '../components/Layout'
-import { useAuth } from '../context/AuthContext'
 import {
   Shield,
   Trash2,
-  User,
   Mail,
-  Phone,
-  Globe,
   Calendar,
   ShieldAlert,
   Search,
   AlertTriangle,
   CheckCircle,
   XCircle,
-  Loader2
+  Loader2,
+  Lock,
+  User,
+  KeyRound,
+  ArrowLeft
 } from 'lucide-react'
 
-export default function AdminPanel() {
+export default function SuperAdminPanel() {
   const navigate = useNavigate()
-  const { user: currentUser, profile: currentProfile, loading: authLoading } = useAuth()
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [loginId, setLoginId] = useState('')
+  const [loginPass, setLoginPass] = useState('')
+  const [loginError, setLoginError] = useState('')
+
+  // Users data states
   const [users, setUsers] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
   const [manualDeleteId, setManualDeleteId] = useState('')
   const [deleteConfirmUser, setDeleteConfirmUser] = useState(null)
@@ -39,14 +43,26 @@ export default function AdminPanel() {
     }, 5000)
   }
 
+  // Handle local credentials check
+  function handleSuperAdminLogin(e) {
+    e.preventDefault()
+    setLoginError('')
+    if (loginId === 'Beast' && loginPass === 'Beast123') {
+      setIsAuthenticated(true)
+      // Save session local state if wanted, but keep it simple for now
+      fetchUsers()
+    } else {
+      setLoginError('Invalid Super Admin ID or Password.')
+    }
+  }
+
   async function fetchUsers() {
     setLoading(true)
     try {
-      const { data, error } = await supabase.rpc('admin_get_users')
+      const { data, error } = await supabase.rpc('super_admin_get_users')
       if (error) {
-        // If the RPC fails, check if we need to explain to the user to run SQL
         if (error.message.includes('does not exist')) {
-          showFeedback('error', 'Database RPC function "admin_get_users" not found. Please run the migration SQL script in your Supabase SQL Editor.')
+          showFeedback('error', 'Database RPC function "super_admin_get_users" not found. Please run the SQL migration script in your Supabase SQL Editor.')
         } else {
           showFeedback('error', error.message)
         }
@@ -55,40 +71,23 @@ export default function AdminPanel() {
       }
     } catch (err) {
       console.error(err)
-      showFeedback('error', 'Failed to retrieve users.')
+      showFeedback('error', 'Failed to retrieve user accounts.')
     } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => {
-    if (!authLoading) {
-      if (!currentUser || currentUser.email !== 'beastbhavu@gmail.com') {
-        navigate('/dashboard')
-      } else {
-        fetchUsers()
-      }
-    }
-  }, [currentUser, currentProfile, authLoading])
-
   async function handleDeleteUser(targetUser) {
     if (!targetUser) return
     setActionLoading(true)
     try {
-      const { error } = await supabase.rpc('admin_delete_user', {
+      const { error } = await supabase.rpc('super_admin_delete_user', {
         target_user_id: targetUser.id
       })
 
       if (error) {
         showFeedback('error', error.message)
       } else {
-        // Log activity
-        await supabase.from('activity_logs').insert({
-          action: `Permanently deleted user: ${targetUser.email} (Name: ${targetUser.full_name || 'N/A'}, ID: ${targetUser.id})`,
-          entity_type: 'user',
-          user_id: currentUser.id
-        })
-
         showFeedback('success', `User ${targetUser.email} has been permanently deleted.`)
         fetchUsers()
       }
@@ -116,11 +115,6 @@ export default function AdminPanel() {
       return
     }
 
-    if (targetId === currentUser.id) {
-      showFeedback('error', 'You cannot delete your own admin account.')
-      return
-    }
-
     // Try to find the user in our local list first to give detailed confirm dialog
     const targetUser = users.find(u => u.id === targetId) || { id: targetId, email: 'User with ID: ' + targetId, full_name: 'Manual Deletion' }
     setDeleteConfirmUser(targetUser)
@@ -144,20 +138,91 @@ export default function AdminPanel() {
     vendor: 'bg-blue-100 text-blue-800 border-blue-200',
   }
 
-  if (authLoading || (!currentUser || currentUser.email !== 'beastbhavu@gmail.com')) {
+  // LOGIN PAGE FOR SUPER ADMIN PANEL
+  if (!isAuthenticated) {
     return (
-      <div className="flex h-screen items-center justify-center bg-[#f4f5f7]">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="w-8 h-8 text-green-500 animate-spin" />
-          <span className="text-sm text-gray-500 font-medium">Validating Admin Credentials...</span>
+      <div className="min-h-screen bg-[#0f1117] flex flex-col items-center justify-center p-6 text-gray-200 font-sans">
+        <div className="w-full max-w-md bg-[#161922] rounded-2xl border border-gray-800 p-8 shadow-2xl space-y-6">
+          {/* Header */}
+          <div className="flex flex-col items-center text-center space-y-2">
+            <div className="w-12 h-12 bg-rose-500/10 rounded-xl flex items-center justify-center text-rose-500 border border-rose-500/20">
+              <Shield className="w-6 h-6" />
+            </div>
+            <h2 className="text-xl font-bold text-white tracking-tight">Super Admin Portal</h2>
+            <p className="text-xs text-gray-400">Please authenticate using local root keys to access credentials.</p>
+          </div>
+
+          <form onSubmit={handleSuperAdminLogin} className="space-y-4">
+            {loginError && (
+              <div className="p-3.5 bg-rose-950/40 border border-rose-900/50 text-rose-200 rounded-lg text-xs font-semibold">
+                {loginError}
+              </div>
+            )}
+
+            {/* ID */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-400 mb-1.5 uppercase tracking-wider">Super Admin ID</label>
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">
+                  <User className="w-4 h-4" />
+                </span>
+                <input
+                  type="text"
+                  required
+                  value={loginId}
+                  onChange={(e) => setLoginId(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 bg-[#1b1f2b] border border-gray-800 rounded-lg text-xs text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent transition font-medium"
+                  placeholder="Enter ID"
+                />
+              </div>
+            </div>
+
+            {/* Password */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-400 mb-1.5 uppercase tracking-wider">Pass Code</label>
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">
+                  <Lock className="w-4 h-4" />
+                </span>
+                <input
+                  type="password"
+                  required
+                  value={loginPass}
+                  onChange={(e) => setLoginPass(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 bg-[#1b1f2b] border border-gray-800 rounded-lg text-xs text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent transition font-medium"
+                  placeholder="••••••••"
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="w-full py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold transition shadow-lg hover:shadow-rose-600/10 flex items-center justify-center gap-2 mt-2"
+            >
+              <KeyRound className="w-4 h-4" />
+              <span>Verify Root Keys</span>
+            </button>
+          </form>
+
+          <div className="text-center pt-2">
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="text-xs text-gray-500 hover:text-gray-300 font-medium inline-flex items-center gap-1.5 transition"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Return to Application</span>
+            </button>
+          </div>
         </div>
       </div>
     )
   }
 
+  // AUTHENTICATED SYSTEM VIEW
   return (
-    <Layout>
+    <div className="min-h-screen bg-[#f4f5f7] p-6 sm:p-10 font-sans">
       <div className="space-y-6 max-w-7xl mx-auto">
+        
         {/* Top Header */}
         <div className="flex items-center justify-between pb-4 border-b border-gray-200">
           <div className="flex items-center gap-3">
@@ -165,15 +230,26 @@ export default function AdminPanel() {
               <Shield className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Admin Control Panel</h1>
+              <h1 className="text-2xl font-bold text-gray-900">Super Admin Control Panel</h1>
               <p className="text-xs text-gray-500 mt-1">
-                Manage user credentials, database states, and permanently delete registered profiles.
+                View all user credentials (emails, profiles, UUIDs) and permanently delete them from auth.users.
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 text-xs text-amber-800 font-medium shadow-sm">
-            <ShieldAlert className="w-4 h-4 shrink-0 text-amber-600" />
-            <span>Authorized: Admin Root Role</span>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                setIsAuthenticated(false)
+                setLoginPass('')
+              }}
+              className="bg-white border border-gray-300 rounded-lg px-3 py-1.5 text-xs text-gray-700 font-medium hover:bg-gray-50 transition"
+            >
+              Lock Console
+            </button>
+            <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 text-xs text-amber-800 font-medium shadow-sm">
+              <ShieldAlert className="w-4 h-4 shrink-0 text-amber-600" />
+              <span>ROOT CONSOLE AUTHORIZED</span>
+            </div>
           </div>
         </div>
 
@@ -250,15 +326,12 @@ export default function AdminPanel() {
                       </tr>
                     ) : (
                       filteredUsers.map(user => {
-                        const isSelf = user.id === currentUser.id
                         return (
                           <tr key={user.id} className="hover:bg-gray-50/50 transition-colors">
                             {/* User details */}
                             <td className="px-5 py-4">
                               <div className="flex items-center gap-3">
-                                <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs ${
-                                  isSelf ? 'bg-rose-50 text-rose-600 border border-rose-100' : 'bg-gray-100 text-gray-700'
-                                }`}>
+                                <div className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs bg-gray-100 text-gray-700">
                                   {user.full_name ? user.full_name.substring(0, 2).toUpperCase() : 'U'}
                                 </div>
                                 <div className="min-w-0">
@@ -266,11 +339,6 @@ export default function AdminPanel() {
                                     <span className="font-semibold text-gray-900 text-xs truncate">
                                       {user.full_name || 'N/A'}
                                     </span>
-                                    {isSelf && (
-                                      <span className="px-1.5 py-0.5 rounded text-[10px] bg-rose-50 text-rose-600 border border-rose-200 font-medium">
-                                        You
-                                      </span>
-                                    )}
                                   </div>
                                   <div className="flex items-center gap-1 text-gray-500 text-[11px] mt-0.5">
                                     <Mail className="w-3 h-3 text-gray-400 shrink-0" />
@@ -304,13 +372,8 @@ export default function AdminPanel() {
                             <td className="px-5 py-4 text-right">
                               <button
                                 onClick={() => setDeleteConfirmUser(user)}
-                                disabled={isSelf}
-                                className={`p-1.5 rounded-lg border transition-colors inline-flex items-center justify-center ${
-                                  isSelf 
-                                    ? 'bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed' 
-                                    : 'bg-white border-gray-200 text-gray-400 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200'
-                                }`}
-                                title={isSelf ? 'Cannot delete yourself' : 'Delete user permanently'}
+                                className="p-1.5 rounded-lg border transition-colors inline-flex items-center justify-center bg-white border-gray-200 text-gray-400 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200"
+                                title="Delete user permanently"
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>
@@ -477,6 +540,6 @@ export default function AdminPanel() {
           </div>
         </div>
       )}
-    </Layout>
+    </div>
   )
 }
