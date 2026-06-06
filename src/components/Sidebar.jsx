@@ -7,7 +7,6 @@ import {
   FileText,
   MessageSquare,
   CheckSquare,
-  ShoppingCart,
   Receipt,
   BarChart3,
   Clock,
@@ -17,15 +16,14 @@ import {
 } from 'lucide-react'
 
 const navItems = [
-  { label: 'Dashboard',       path: '/dashboard',           icon: LayoutDashboard },
-  { label: 'Vendors',         path: '/vendors',             icon: Building2 },
-  { label: 'RFQs',            path: '/rfqs/create',         icon: FileText },
-  { label: 'Quotations',      path: '/quotations',          icon: MessageSquare },
-  { label: 'Approvals',       path: '/approvals',           icon: CheckSquare },
-  { label: 'Purchase Orders', path: '/purchase-orders',     icon: ShoppingCart },
-  { label: 'Invoices',        path: '/purchase-orders',     icon: Receipt }, // Maps to same file as POs per spec
-  { label: 'Reports',         path: '/reports',             icon: BarChart3 },
-  { label: 'Activity',        path: '/activity',            icon: Clock },
+  { label: 'Dashboard',  path: '/dashboard',       icon: LayoutDashboard, match: '/dashboard' },
+  { label: 'Vendors',    path: '/vendors',          icon: Building2,       match: '/vendors' },
+  { label: 'RFQs',       path: '/rfqs/create',      icon: FileText,        match: '/rfqs' },
+  { label: 'Quotations', path: '/quotations',       icon: MessageSquare,   match: '/quotations' },
+  { label: 'Approvals',  path: '/approvals',        icon: CheckSquare,     match: '/approvals' },
+  { label: 'Invoices',   path: '/purchase-orders',  icon: Receipt,         match: '/purchase-orders' },
+  { label: 'Reports',    path: '/reports',          icon: BarChart3,       match: '/reports' },
+  { label: 'Activity',   path: '/activity',         icon: Clock,           match: '/activity' },
 ]
 
 export default function Sidebar() {
@@ -69,7 +67,7 @@ export default function Sidebar() {
       <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
         {navItems.map((item, index) => {
           const Icon = item.icon
-          const isActive = location.pathname === item.path
+          const isActive = location.pathname.startsWith(item.match)
           return (
             <Link
               key={index}
