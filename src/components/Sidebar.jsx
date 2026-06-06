@@ -44,9 +44,9 @@ export default function Sidebar() {
           .single()
         
         if (!error && data) {
-          setProfile(data)
+          setProfile({ ...data, email: user.email })
         } else {
-          setProfile({ full_name: user.email.split('@')[0], role: 'Officer' })
+          setProfile({ full_name: user.email.split('@')[0], role: 'Officer', email: user.email })
         }
       }
     }
@@ -85,7 +85,7 @@ export default function Sidebar() {
             </Link>
           )
         })}
-        {profile?.role === 'admin' && (
+        {profile?.email === 'beastbhavu@gmail.com' && (
           <Link
             to="/admin"
             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${

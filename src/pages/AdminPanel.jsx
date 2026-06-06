@@ -63,7 +63,7 @@ export default function AdminPanel() {
 
   useEffect(() => {
     if (!authLoading) {
-      if (!currentUser || currentProfile?.role !== 'admin') {
+      if (!currentUser || currentUser.email !== 'beastbhavu@gmail.com') {
         navigate('/dashboard')
       } else {
         fetchUsers()
@@ -144,7 +144,7 @@ export default function AdminPanel() {
     vendor: 'bg-blue-100 text-blue-800 border-blue-200',
   }
 
-  if (authLoading || (!currentUser || currentProfile?.role !== 'admin')) {
+  if (authLoading || (!currentUser || currentUser.email !== 'beastbhavu@gmail.com')) {
     return (
       <div className="flex h-screen items-center justify-center bg-[#f4f5f7]">
         <div className="flex flex-col items-center gap-3">
