@@ -2,75 +2,22 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import Layout from '../components/Layout'
-import { CheckCircle, XCircle, Clock, Check, X, AlertTriangle, Info } from 'lucide-react'
-
-// ── Step indicator component ──────────────────────────────────────────────────
-function StepItem({ number, label, state }) {
-  // state: 'done' | 'active' | 'pending'
-  return (
-    <div className="flex items-center gap-2">
-      {state === 'done' && (
-        <CheckCircle className="w-6 h-6 text-green-500 fill-green-500 shrink-0" />
-      )}
-      {state === 'active' && (
-        <div className="w-6 h-6 rounded-full border-2 border-green-500 flex items-center justify-center shrink-0 animate-pulse bg-green-50">
-          <span className="text-[11px] font-extrabold text-green-600">{number}</span>
-        </div>
-      )}
-      {state === 'pending' && (
-        <div className="w-6 h-6 rounded-full border-2 border-gray-300 flex items-center justify-center shrink-0">
-          <span className="text-[11px] font-bold text-gray-400">{number}</span>
-        </div>
-      )}
-      <span className={`text-sm font-semibold ${
-        state === 'done' ? 'text-green-600' :
-        state === 'active' ? 'text-green-700' :
-        'text-gray-400'
-      }`}>
-        {label}
-      </span>
-    </div>
-  )
-}
-
-// ── Timeline entry component ──────────────────────────────────────────────────
-function TimelineEntry({ icon, iconBg, iconColor, title, actor, date, pulsing }) {
-  return (
-    <div className="relative">
-      <span className={`absolute -left-9 top-0 w-6 h-6 rounded-full ${iconBg} flex items-center justify-center ${iconColor} ${pulsing ? 'animate-pulse' : ''}`}>
-        {icon}
-      </span>
-      <div>
-        <span className={`font-bold ${iconColor === 'text-blue-600' ? 'text-blue-600' : iconColor === 'text-gray-400' ? 'text-gray-400' : 'text-gray-900'}`}>
-          {title}
-        </span>
-        {actor && <span className="text-gray-500"> &mdash; {actor}</span>}
-        {date && <span className="text-xs text-gray-400 ml-1">&mdash; {date}</span>}
-      </div>
-    </div>
-  )
-}
+import { Check, Clock } from 'lucide-react'
 
 export default function Approvals() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [pendingPO, setPendingPO] = useState(null)
   const [remarks, setRemarks] = useState('')
-  const [remarksError, setRemarksError] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [decision, setDecision] = useState(null) // 'Approved' | 'Rejected' | null
 
   // High-fidelity fallback if no pending approvals in DB
   const mockPendingApproval = {
     id: 'mock-po-id',
-    po_number: 'PO-2025-8134',
-    rfq_title: 'Office Furniture Procurement Q2',
-    vendor: 'Infra Supplies',
-    amount: 95400,
-    delivery: '15 Days',
-    payment_terms: 'Net 30',
-    submitted_by: 'John Doe (Procurement Officer)',
-    date: '22 May 2025'
+    vendor: 'Infra Supplies PVT LTD',
+    amount: '1,85,400',
+    delivery: '10 days',
+    rating: '4.5/5'
   }
 
   async function fetchApprovals() {
@@ -85,14 +32,10 @@ export default function Approvals() {
     if (!error && data) {
       setPendingPO({
         id: data.id,
-        po_number: data.po_number,
-        rfq_title: data.quotations?.rfqs?.title || 'Office Furniture Procurement Q2',
-        vendor: data.quotations?.vendors?.name || 'Infra Supplies',
-        amount: Number(data.grand_total) || Number(data.quotations?.total_price) || 95400,
-        delivery: `${data.quotations?.delivery_days || 15} Days`,
-        payment_terms: data.quotations?.payment_terms || 'Net 30',
-        submitted_by: 'John Doe (Procurement Officer)',
-        date: new Date(data.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
+        vendor: data.quotations?.vendors?.name || 'Infra Supplies PVT LTD',
+        amount: Number(data.grand_total || data.quotations?.total_price || 185400).toLocaleString('en-IN'),
+        delivery: `${data.quotations?.delivery_days || 10} days`,
+        rating: data.quotations?.vendors?.rating ? `${data.quotations.vendors.rating}/5` : '4.5/5'
       })
     } else {
       setPendingPO(mockPendingApproval)
@@ -103,13 +46,7 @@ export default function Approvals() {
   useEffect(() => { fetchApprovals() }, [])
 
   const handleDecision = async (status) => {
-    if (!remarks.trim()) {
-      setRemarksError('Approval remarks are required before making a decision.')
-      return
-    }
-    setRemarksError('')
     setSubmitting(true)
-
     const { data: { user } } = await supabase.auth.getUser()
 
     if (pendingPO.id === 'mock-po-id') {
@@ -118,8 +55,7 @@ export default function Approvals() {
         entity_type: 'purchase_order',
         user_id: user?.id
       })
-      setDecision(status)
-      setTimeout(() => navigate('/purchase-orders'), 1800)
+      setTimeout(() => navigate('/purchase-orders'), 1200)
     } else {
       const { error } = await supabase
         .from('purchase_orders')
@@ -134,8 +70,7 @@ export default function Approvals() {
           entity_type: 'purchase_order',
           user_id: user?.id
         })
-        setDecision(status)
-        setTimeout(() => navigate('/purchase-orders'), 1800)
+        setTimeout(() => navigate('/purchase-orders'), 1200)
       }
     }
     setSubmitting(false)
@@ -143,21 +78,14 @@ export default function Approvals() {
 
   return (
     <Layout>
-      <div className="space-y-6 max-w-5xl mx-auto">
-
-        {/* ── Header ─────────────────────────────────────────────────────── */}
-        <div className="pb-4 border-b border-gray-200">
-          <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
-            Approvals &gt; Review
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900">Approval Workflow</h1>
-          {pendingPO && !loading && (
-            <p className="text-sm text-gray-500 mt-1">
-              RFQ: <span className="font-semibold text-gray-700">{pendingPO.rfq_title}</span>
-              {' '}—{' '}Vendor: <span className="font-semibold text-gray-700">{pendingPO.vendor}</span>
-              {' '}—{' '}<span className="font-semibold text-green-600">₹{Number(pendingPO.amount).toLocaleString('en-IN')}</span>
-            </p>
-          )}
+      <div className="space-y-8 max-w-5xl mx-auto px-4 sm:px-0">
+        
+        {/* Header */}
+        <div>
+          <h1 className="text-[28px] font-medium text-gray-900 mb-1">Approval Workflow</h1>
+          <p className="text-gray-900 text-[15px]">
+            RFQ: office furniture Q2 - Vendor: Infra Supplies - 185400
+          </p>
         </div>
 
         {loading ? (
@@ -165,227 +93,141 @@ export default function Approvals() {
             <div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : !pendingPO ? (
-          <div className="bg-white rounded-xl border border-gray-200 p-10 text-center text-gray-500 shadow-sm space-y-3">
-            <CheckCircle className="w-12 h-12 text-green-400 mx-auto" />
-            <p className="font-semibold text-gray-700">All caught up!</p>
-            <p className="text-sm">No procurement requests are currently awaiting approval.</p>
+          <div className="bg-white rounded-xl border border-gray-300 p-10 text-center text-gray-500 shadow-sm">
+            <p className="font-medium text-gray-700">No procurement requests are currently awaiting approval.</p>
           </div>
         ) : (
-          <div className="space-y-6">
-
-            {/* ── Decision Success Banner ─────────────────────────────────── */}
-            {decision && (
-              <div className={`rounded-xl border p-4 flex items-center gap-3 shadow-sm ${
-                decision === 'Approved'
-                  ? 'bg-green-50 border-green-300 text-green-800'
-                  : 'bg-red-50 border-red-300 text-red-800'
-              }`}>
-                {decision === 'Approved'
-                  ? <CheckCircle className="w-5 h-5 text-green-500 shrink-0" />
-                  : <XCircle className="w-5 h-5 text-red-500 shrink-0" />
-                }
-                <span className="font-semibold text-sm">
-                  {decision === 'Approved'
-                    ? `Purchase Order approved successfully. Redirecting to PO page...`
-                    : `Purchase Order rejected. Redirecting...`
-                  }
-                </span>
+          <div className="space-y-10">
+            
+            {/* Stepper matching Excalidraw */}
+            <div className="flex items-center justify-between max-w-3xl mx-auto px-4">
+              <div className="flex flex-col items-center gap-2">
+                <div className="w-8 h-8 rounded-full border border-gray-800 flex items-center justify-center text-sm text-gray-800">1</div>
+                <span className="text-xs text-gray-800">Submitted</span>
               </div>
-            )}
+              
+              <div className="flex-1 h-px bg-gray-400 mx-4" />
+              
+              <div className="flex flex-col items-center gap-2">
+                <div className="w-8 h-8 rounded-full border border-gray-800 flex items-center justify-center text-sm text-gray-800">2</div>
+                <span className="text-xs text-gray-800">L1 Review</span>
+              </div>
 
-            {/* ── Progress Stepper ─────────────────────────────────────────── */}
-            <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-0 max-w-2xl mx-auto">
-                <StepItem number={1} label="Quotation Selected" state="done" />
+              <div className="flex-1 h-px bg-gray-400 mx-4" />
 
-                {/* Connector */}
-                <div className="hidden sm:block flex-1 max-w-[80px] h-[2px] bg-green-400 mx-3" />
+              <div className="flex flex-col items-center gap-2">
+                <div className="w-8 h-8 rounded-full border-2 border-yellow-400 bg-yellow-50 flex items-center justify-center text-sm font-medium text-gray-800">3</div>
+                <span className="text-xs text-blue-500 font-medium">L2 approval</span>
+              </div>
 
-                <StepItem number={2} label="Manager Review" state={decision ? 'done' : 'active'} />
+              <div className="flex-1 h-px bg-gray-400 mx-4" />
 
-                {/* Connector */}
-                <div className={`hidden sm:block flex-1 max-w-[80px] h-[2px] mx-3 ${decision === 'Approved' ? 'bg-green-400' : 'bg-gray-200'}`} />
-
-                <StepItem number={3} label="Final Approval" state={decision === 'Approved' ? 'done' : 'pending'} />
+              <div className="flex flex-col items-center gap-2">
+                <div className="w-8 h-8 rounded-full border border-gray-800 flex items-center justify-center text-sm text-gray-800">4</div>
+                <span className="text-xs text-gray-800">Generate PO</span>
               </div>
             </div>
 
-            {/* ── Split Panels ─────────────────────────────────────────────── */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-              {/* Left: Procurement Summary */}
-              <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm space-y-4">
-                <h2 className="text-sm font-bold uppercase tracking-wider text-gray-500 border-b border-gray-100 pb-3">
-                  Procurement Summary
-                </h2>
-
-                <div className="grid grid-cols-2 gap-y-4 gap-x-4 text-sm">
-                  <div>
-                    <span className="text-gray-400 block text-xs uppercase font-medium mb-0.5">RFQ Title</span>
-                    <span className="font-semibold text-gray-900">{pendingPO.rfq_title}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-400 block text-xs uppercase font-medium mb-0.5">Selected Vendor</span>
-                    <span className="font-semibold text-gray-900">{pendingPO.vendor}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-400 block text-xs uppercase font-medium mb-0.5">Quotation Amount</span>
-                    <span className="font-bold text-green-600 text-base">
-                      ₹{Number(pendingPO.amount).toLocaleString('en-IN')}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-gray-400 block text-xs uppercase font-medium mb-0.5">Delivery Timeline</span>
-                    <span className="font-semibold text-gray-900">{pendingPO.delivery}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-400 block text-xs uppercase font-medium mb-0.5">Payment Terms</span>
-                    <span className="font-semibold text-gray-900">{pendingPO.payment_terms}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-400 block text-xs uppercase font-medium mb-0.5">Submitted By</span>
-                    <span className="font-semibold text-gray-900">{pendingPO.submitted_by}</span>
-                  </div>
-                  <div className="col-span-2 border-t border-gray-100 pt-3">
-                    <span className="text-gray-400 block text-xs uppercase font-medium mb-0.5">Submission Date</span>
-                    <span className="font-semibold text-gray-900">{pendingPO.date}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right: Review & Decision */}
-              <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm flex flex-col justify-between gap-4">
+            {/* Split Content */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+              
+              {/* Left Column */}
+              <div className="space-y-8">
+                {/* Approval Chain */}
                 <div>
-                  <h2 className="text-sm font-bold uppercase tracking-wider text-gray-500 border-b border-gray-100 pb-3 mb-4">
-                    Review &amp; Decision
+                  <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-600 mb-6">
+                    Approval Chain
                   </h2>
+                  <div className="space-y-6 relative before:absolute before:inset-0 before:ml-[11px] before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-gray-200 before:to-transparent">
+                    
+                    {/* Item 1 */}
+                    <div className="flex items-start gap-4">
+                      <div className="w-6 h-6 rounded-full border border-green-500 flex items-center justify-center shrink-0 bg-white z-10 mt-1">
+                        <Check className="w-3.5 h-3.5 text-green-500" />
+                      </div>
+                      <div>
+                        <p className="text-[13px] text-gray-900 font-medium">Rahul Mehta (Procurement head)</p>
+                        <p className="text-[12px] text-gray-600">Approved on may 20, 10:32 Am</p>
+                      </div>
+                    </div>
 
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Approval Remarks <span className="text-red-500">*</span>
-                    </label>
-                    <textarea
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition resize-none"
-                      rows={5}
-                      placeholder="Add your comments or remarks..."
-                      value={remarks}
-                      onChange={(e) => { setRemarks(e.target.value); if (remarksError) setRemarksError('') }}
-                      disabled={!!decision}
-                    />
-                    {remarksError && (
-                      <p className="text-red-500 text-xs flex items-center gap-1.5">
-                        <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                        {remarksError}
-                      </p>
-                    )}
+                    {/* Item 2 */}
+                    <div className="flex items-start gap-4">
+                      <div className="w-6 h-6 rounded-full border border-blue-500 flex items-center justify-center shrink-0 bg-white z-10 mt-1">
+                        <Clock className="w-3.5 h-3.5 text-blue-500" />
+                      </div>
+                      <div>
+                        <p className="text-[13px] text-gray-900 font-medium">Priya Shah (Finance manager)</p>
+                        <p className="text-[12px] text-gray-600">Awaiting<br/>Assigned may 21</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                <div className="space-y-3">
-                  {/* Approve / Reject buttons */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      onClick={() => handleDecision('Approved')}
-                      disabled={submitting || !!decision}
-                      className="flex items-center justify-center gap-2 px-4 py-3 bg-green-500 text-white rounded-lg text-sm font-bold hover:bg-green-600 transition shadow-sm w-full disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <Check className="w-4.5 h-4.5" />
-                      <span>Approve</span>
-                    </button>
-                    <button
-                      onClick={() => handleDecision('Rejected')}
-                      disabled={submitting || !!decision}
-                      className="flex items-center justify-center gap-2 px-4 py-3 bg-red-500 text-white rounded-lg text-sm font-bold hover:bg-red-600 transition shadow-sm w-full disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <X className="w-4.5 h-4.5" />
-                      <span>Reject</span>
-                    </button>
-                  </div>
+                <hr className="border-gray-300" />
 
-                  {/* Request more info link */}
-                  <div className="text-center">
-                    <button className="text-xs font-semibold text-gray-400 hover:text-gray-600 transition underline underline-offset-2">
-                      Request More Information
-                    </button>
-                  </div>
+                {/* Approval Remarks */}
+                <div>
+                  <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-600 mb-4">
+                    Approval Remarks
+                  </h2>
+                  <textarea
+                    className="w-full p-3 border border-gray-400 rounded-md text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:border-gray-600 resize-none"
+                    rows={4}
+                    placeholder="Add your comments or conditions..."
+                    value={remarks}
+                    onChange={(e) => setRemarks(e.target.value)}
+                  />
                 </div>
               </div>
-            </div>
 
-            {/* ── Vertical Timeline ─────────────────────────────────────────── */}
-            <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm space-y-4">
-              <h2 className="text-sm font-bold uppercase tracking-wider text-gray-500 border-b border-gray-100 pb-3">
-                Approval Process Timeline
-              </h2>
+              {/* Right Column */}
+              <div className="space-y-6">
+                {/* Quotations Summary Box */}
+                <div>
+                  <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-600 mb-4">
+                    Quotations Summary
+                  </h2>
+                  <div className="border border-gray-400 rounded-lg p-5 bg-white space-y-4">
+                    <div className="flex justify-between items-center text-[13px]">
+                      <span className="text-gray-800">Vendor:</span>
+                      <span className="text-gray-900 font-medium text-right">{pendingPO.vendor}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[13px]">
+                      <span className="text-gray-800">Total:</span>
+                      <span className="text-gray-900 font-medium text-right">{pendingPO.amount}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[13px]">
+                      <span className="text-gray-800">Delivery:</span>
+                      <span className="text-gray-900 font-medium text-right">{pendingPO.delivery}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[13px]">
+                      <span className="text-gray-800">Rating:</span>
+                      <span className="text-gray-900 font-medium text-right">{pendingPO.rating}</span>
+                    </div>
+                  </div>
+                </div>
 
-              <div className="relative border-l-2 border-gray-200 pl-6 ml-4 space-y-6 text-sm text-gray-600 py-2">
-
-                <TimelineEntry
-                  icon={<Check className="w-3.5 h-3.5" />}
-                  iconBg="bg-green-100"
-                  iconColor="text-green-600"
-                  title="RFQ Created"
-                  actor="John Doe"
-                  date="10 May 2025"
-                />
-
-                <TimelineEntry
-                  icon={<Check className="w-3.5 h-3.5" />}
-                  iconBg="bg-green-100"
-                  iconColor="text-green-600"
-                  title="Quotations Received (3)"
-                  actor="System"
-                  date="18 May 2025"
-                />
-
-                <TimelineEntry
-                  icon={<Check className="w-3.5 h-3.5" />}
-                  iconBg="bg-green-100"
-                  iconColor="text-green-600"
-                  title="Best Quote Selected"
-                  actor="John Doe"
-                  date="22 May 2025"
-                />
-
-                {decision === 'Approved' ? (
-                  <TimelineEntry
-                    icon={<Check className="w-3.5 h-3.5" />}
-                    iconBg="bg-green-100"
-                    iconColor="text-green-600"
-                    title="Manager Approved"
-                    actor="Manager"
-                    date={new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
-                  />
-                ) : decision === 'Rejected' ? (
-                  <TimelineEntry
-                    icon={<X className="w-3.5 h-3.5" />}
-                    iconBg="bg-red-100"
-                    iconColor="text-red-600"
-                    title="Manager Rejected"
-                    actor="Manager"
-                    date={new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
-                  />
-                ) : (
-                  <TimelineEntry
-                    icon={<Clock className="w-3.5 h-3.5" />}
-                    iconBg="bg-blue-100"
-                    iconColor="text-blue-600"
-                    title="Pending Manager Approval"
-                    actor="Awaiting review..."
-                    pulsing
-                  />
-                )}
-
-                <TimelineEntry
-                  icon={<span className="text-[10px] font-bold text-gray-400">5</span>}
-                  iconBg={`${decision === 'Approved' ? 'bg-green-50 border border-green-200' : 'bg-gray-100 border border-gray-300'}`}
-                  iconColor="text-gray-400"
-                  title="Purchase Order Generation"
-                  actor={decision === 'Approved' ? 'Auto-generating PO...' : 'Pending approval'}
-                />
+                {/* Buttons */}
+                <div className="flex gap-4">
+                  <button
+                    onClick={() => handleDecision('Approved')}
+                    disabled={submitting}
+                    className="flex-1 py-2.5 border border-gray-400 rounded-md text-[13px] text-gray-800 font-medium hover:bg-gray-50 transition"
+                  >
+                    Approve
+                  </button>
+                  <button
+                    onClick={() => handleDecision('Rejected')}
+                    disabled={submitting}
+                    className="flex-1 py-2.5 border border-gray-400 rounded-md text-[13px] text-gray-800 font-medium hover:bg-gray-50 transition"
+                  >
+                    Reject
+                  </button>
+                </div>
               </div>
-            </div>
 
+            </div>
           </div>
         )}
       </div>
