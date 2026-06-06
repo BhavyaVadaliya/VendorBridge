@@ -100,32 +100,34 @@ export default function Approvals() {
           <div className="space-y-10">
             
             {/* Stepper matching Excalidraw */}
-            <div className="flex items-center justify-between max-w-3xl mx-auto px-4">
-              <div className="flex flex-col items-center gap-2">
-                <div className="w-8 h-8 rounded-full border border-gray-800 flex items-center justify-center text-sm text-gray-800">1</div>
-                <span className="text-xs text-gray-800">Submitted</span>
+            <div className="flex flex-row items-start justify-between max-w-3xl mx-auto px-4">
+              
+              <div className="flex flex-col items-center gap-2 relative z-10 w-24">
+                <div className="w-8 h-8 rounded-full border border-gray-800 bg-white flex items-center justify-center text-sm text-gray-800">1</div>
+                <span className="text-[11px] text-gray-800 text-center">Submitted</span>
               </div>
               
-              <div className="flex-1 h-px bg-gray-400 mx-4" />
+              <div className="flex-1 h-px bg-gray-800 mt-4 -mx-8 z-0" />
               
-              <div className="flex flex-col items-center gap-2">
-                <div className="w-8 h-8 rounded-full border border-gray-800 flex items-center justify-center text-sm text-gray-800">2</div>
-                <span className="text-xs text-gray-800">L1 Review</span>
+              <div className="flex flex-col items-center gap-2 relative z-10 w-24">
+                <div className="w-8 h-8 rounded-full border border-gray-800 bg-white flex items-center justify-center text-sm text-gray-800">2</div>
+                <span className="text-[11px] text-gray-800 text-center">L1 Review</span>
               </div>
 
-              <div className="flex-1 h-px bg-gray-400 mx-4" />
+              <div className="flex-1 h-px bg-gray-800 mt-4 -mx-8 z-0" />
 
-              <div className="flex flex-col items-center gap-2">
-                <div className="w-8 h-8 rounded-full border-2 border-yellow-400 bg-yellow-50 flex items-center justify-center text-sm font-medium text-gray-800">3</div>
-                <span className="text-xs text-blue-500 font-medium">L2 approval</span>
+              <div className="flex flex-col items-center gap-2 relative z-10 w-24">
+                <div className="w-8 h-8 rounded-full border border-[#fce45c] bg-[#fce45c] flex items-center justify-center text-sm font-medium text-gray-900">3</div>
+                <span className="text-[11px] text-blue-500 font-medium text-center">L2 approval</span>
               </div>
 
-              <div className="flex-1 h-px bg-gray-400 mx-4" />
+              <div className="flex-1 h-px bg-gray-800 mt-4 -mx-8 z-0" />
 
-              <div className="flex flex-col items-center gap-2">
-                <div className="w-8 h-8 rounded-full border border-gray-800 flex items-center justify-center text-sm text-gray-800">4</div>
-                <span className="text-xs text-gray-800">Generate PO</span>
+              <div className="flex flex-col items-center gap-2 relative z-10 w-24">
+                <div className="w-8 h-8 rounded-full border border-gray-800 bg-white flex items-center justify-center text-sm text-gray-800">4</div>
+                <span className="text-[11px] text-gray-800 text-center">Generate PO</span>
               </div>
+              
             </div>
 
             {/* Split Content */}
@@ -138,11 +140,11 @@ export default function Approvals() {
                   <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-600 mb-6">
                     Approval Chain
                   </h2>
-                  <div className="space-y-6 relative before:absolute before:inset-0 before:ml-[11px] before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-gray-200 before:to-transparent">
+                  <div className="space-y-6">
                     
                     {/* Item 1 */}
                     <div className="flex items-start gap-4">
-                      <div className="w-6 h-6 rounded-full border border-green-500 flex items-center justify-center shrink-0 bg-white z-10 mt-1">
+                      <div className="w-6 h-6 rounded-full border border-green-500 flex items-center justify-center shrink-0 mt-1">
                         <Check className="w-3.5 h-3.5 text-green-500" />
                       </div>
                       <div>
@@ -153,7 +155,7 @@ export default function Approvals() {
 
                     {/* Item 2 */}
                     <div className="flex items-start gap-4">
-                      <div className="w-6 h-6 rounded-full border border-blue-500 flex items-center justify-center shrink-0 bg-white z-10 mt-1">
+                      <div className="w-6 h-6 rounded-full border border-blue-500 flex items-center justify-center shrink-0 mt-1">
                         <Clock className="w-3.5 h-3.5 text-blue-500" />
                       </div>
                       <div>
