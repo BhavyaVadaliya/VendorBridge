@@ -4,7 +4,7 @@ solve :- done
 
 2. RFQs page - add attachments not working
 
-solve :-
+solve :-review
 
 3. Quotation page - Quotation comparison missing as per given mock (screen 7)
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -13,8 +13,25 @@ import {
   ChevronLeft,
   ChevronRight,
   Save,
-  Send
+  Send,
+  File,
+  X
 } from 'lucide-react'
+
+const ALLOWED_TYPES = [
+  'application/pdf',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/msword'
+]
+const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
+
+function formatBytes(bytes) {
+  if (bytes < 1024) return bytes + ' B'
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+}
 
 export default function RFQCreate() {
   const navigate = useNavigate()
@@ -23,6 +40,10 @@ export default function RFQCreate() {
   const [selectedVendors, setSelectedVendors] = useState([])
   const [loadingVendors, setLoadingVendors] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [attachments, setAttachments] = useState([])
+  const [attachError, setAttachError] = useState('')
+  const [isDragging, setIsDragging] = useState(false)
+  const fileInputRef = useRef(null)
 
   const { register, control, handleSubmit, trigger, watch, formState: { errors } } = useForm({
     defaultValues: {
@@ -58,6 +79,37 @@ export default function RFQCreate() {
     }
     fetchActiveVendors()
   }, [])
+
+  // ── Attachment handlers ────────────────────────────────────────────
+  const handleFiles = (files) => {
+    setAttachError('')
+    const valid = []
+    for (const file of files) {
+      if (!ALLOWED_TYPES.includes(file.type)) {
+        setAttachError(`"${file.name}" is not allowed. Only PDF, XLSX, DOCX files are accepted.`)
+        continue
+      }
+      if (file.size > MAX_FILE_SIZE) {
+        setAttachError(`"${file.name}" exceeds the 10MB limit.`)
+        continue
+      }
+      // Avoid duplicates by name
+      if (!attachments.some(a => a.name === file.name)) {
+        valid.push(file)
+      }
+    }
+    if (valid.length > 0) {
+      setAttachments(prev => [...prev, ...valid])
+    }
+    // Reset file input so same file can be re-added after removal
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  const removeAttachment = (index) => {
+    setAttachments(prev => prev.filter((_, i) => i !== index))
+    setAttachError('')
+  }
+  // ──────────────────────────────────────────────────────────────────
 
   const nextStep = async () => {
     let fieldsToValidate = []
@@ -244,13 +296,72 @@ export default function RFQCreate() {
             </div>
 
             {/* Attachments */}
-            <div className="space-y-2">
+            <div className="space-y-3">
               <label className="block text-sm font-medium text-gray-700">Attachments (Optional)</label>
-              <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 flex flex-col items-center justify-center bg-gray-50 hover:bg-gray-100/50 transition cursor-pointer">
-                <UploadCloud className="w-10 h-10 text-gray-400 mb-2" />
-                <span className="text-sm font-medium text-gray-600">Drag files here or click to upload</span>
+
+              {/* Hidden file input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept=".pdf,.xlsx,.xls,.docx,.doc"
+                className="hidden"
+                onChange={(e) => handleFiles(Array.from(e.target.files))}
+              />
+
+              {/* Drop zone */}
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  setIsDragging(false)
+                  handleFiles(Array.from(e.dataTransfer.files))
+                }}
+                className={`border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer transition-all ${
+                  isDragging
+                    ? 'border-green-500 bg-green-50'
+                    : 'border-gray-300 bg-gray-50 hover:bg-gray-100/50 hover:border-gray-400'
+                }`}
+              >
+                <UploadCloud className={`w-10 h-10 mb-2 transition-colors ${isDragging ? 'text-green-500' : 'text-gray-400'}`} />
+                <span className="text-sm font-medium text-gray-600">
+                  {isDragging ? 'Drop files here' : 'Drag files here or click to upload'}
+                </span>
                 <span className="text-xs text-gray-400 mt-1">Accepts PDF, XLSX, DOCX up to 10MB</span>
               </div>
+
+              {/* Error message */}
+              {attachError && (
+                <p className="text-red-500 text-xs flex items-center gap-1">
+                  <X className="w-3.5 h-3.5" />{attachError}
+                </p>
+              )}
+
+              {/* Attached files list */}
+              {attachments.length > 0 && (
+                <div className="space-y-2">
+                  {attachments.map((file, idx) => (
+                    <div key={idx} className="flex items-center justify-between bg-white border border-gray-200 rounded-lg px-4 py-2.5 shadow-sm">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <File className="w-4 h-4 text-green-500 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
+                          <p className="text-xs text-gray-400">{formatBytes(file.size)}</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeAttachment(idx)}
+                        className="p-1 hover:bg-red-50 rounded-md text-gray-400 hover:text-red-500 transition shrink-0 ml-2"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
