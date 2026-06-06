@@ -20,10 +20,12 @@ export default function Settings() {
   const [fullName, setFullName] = useState('')
   const [role, setRole] = useState('officer')
   const [permissions, setPermissions] = useState([])
+  
+  // Edge Case: Track current user
+  const [currentUserId, setCurrentUserId] = useState(null)
 
   async function fetchUsers() {
     setLoading(true)
-    // Note: Depends on RLS policies allowing Admin to select profiles
     const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false })
     if (data) setUsers(data)
     setLoading(false)
@@ -31,6 +33,7 @@ export default function Settings() {
 
   useEffect(() => {
     fetchUsers()
+    supabase.auth.getUser().then(({ data }) => setCurrentUserId(data?.user?.id))
   }, [])
 
   const togglePermission = (mod, currentPerms, setter) => {
@@ -207,11 +210,28 @@ export default function Settings() {
                   {users.map(u => {
                     const isEditing = editingUserId === u.id
                     const uPerms = Array.isArray(u.permissions) ? u.permissions : []
+                    
+                    const handleDeleteUser = async () => {
+                      if (u.id === currentUserId) {
+                        alert("Edge Case Prevented: You cannot deactivate your own Admin account.")
+                        return
+                      }
+                      if (window.confirm(`Are you sure you want to deactivate ${u.full_name}? This will revoke their ERP access permanently.`)) {
+                        const { error } = await supabase.from('profiles').delete().eq('id', u.id)
+                        if (error) {
+                          alert("Failed to deactivate: " + error.message)
+                        } else {
+                          fetchUsers()
+                        }
+                      }
+                    }
+
                     return (
                       <tr key={u.id} className="hover:bg-gray-50">
                         <td className="p-4 text-gray-900 font-medium">
                           {u.full_name}
                           {u.role === 'admin' && <span className="ml-2 inline-flex bg-red-100 text-red-700 text-[10px] uppercase font-bold px-1.5 py-0.5 rounded">Admin</span>}
+                          {u.id === currentUserId && <span className="ml-2 inline-flex bg-gray-100 text-gray-600 text-[10px] uppercase font-bold px-1.5 py-0.5 rounded">You</span>}
                         </td>
                         <td className="p-4 text-gray-600 capitalize">{u.role}</td>
                         <td className="p-4">
@@ -245,15 +265,26 @@ export default function Settings() {
                           )}
                         </td>
                         <td className="p-4">
-                          {u.role !== 'admin' && (
-                            <>
-                              {isEditing ? (
-                                <button onClick={() => handleUpdatePermissions(u.id, uPerms)} className="text-green-600 text-xs font-semibold hover:text-green-800 bg-green-50 px-3 py-1.5 rounded">Save</button>
-                              ) : (
-                                <button onClick={() => setEditingUserId(u.id)} className="text-gray-500 text-xs font-semibold hover:text-gray-900 border border-gray-300 px-3 py-1.5 rounded bg-white">Edit Access</button>
+                            <div className="flex items-center gap-2">
+                              {u.role !== 'admin' && (
+                                <>
+                                  {isEditing ? (
+                                    <button onClick={() => handleUpdatePermissions(u.id, uPerms)} className="text-green-600 text-xs font-semibold hover:text-green-800 bg-green-50 px-3 py-1.5 rounded">Save</button>
+                                  ) : (
+                                    <button onClick={() => setEditingUserId(u.id)} className="text-gray-500 text-xs font-semibold hover:text-gray-900 border border-gray-300 px-3 py-1.5 rounded bg-white">Edit Access</button>
+                                  )}
+                                </>
                               )}
-                            </>
-                          )}
+                              {/* Deactivate User Button */}
+                              <button 
+                                onClick={handleDeleteUser}
+                                disabled={u.id === currentUserId}
+                                className={`text-xs font-semibold px-3 py-1.5 rounded border ${u.id === currentUserId ? 'text-gray-400 border-gray-200 bg-gray-50 cursor-not-allowed' : 'text-red-600 hover:text-white hover:bg-red-600 border-red-200 bg-white'} transition`}
+                                title={u.id === currentUserId ? "Cannot delete yourself" : "Revoke Access"}
+                              >
+                                Revoke
+                              </button>
+                            </div>
                         </td>
                       </tr>
                     )
