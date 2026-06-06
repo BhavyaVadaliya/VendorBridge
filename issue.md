@@ -4,7 +4,7 @@ solve :- done
 
 2. RFQs page - add attachments not working
 
-solve :-review
+solve :- done (click-to-upload + drag-and-drop + file validation + remove buttons)
 
 3. Quotation page - Quotation comparison missing as per given mock (screen 7)
 
