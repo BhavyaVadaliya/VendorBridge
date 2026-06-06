@@ -7,6 +7,7 @@ import { Check, X, Award, Star, ArrowRight } from 'lucide-react'
 export default function QuotationCompare() {
   const navigate = useNavigate()
   const [rfqs, setRfqs] = useState([])
+  const [quotations, setQuotations] = useState([])
   const [selectedRfq, setSelectedRfq] = useState(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -26,19 +27,25 @@ export default function QuotationCompare() {
   }
 
   useEffect(() => {
-    async function loadRFQs() {
+    async function loadData() {
       setLoading(true)
-      const { data } = await supabase.from('rfqs').select('*')
-      if (data && data.length > 0) {
-        setRfqs(data)
-        setSelectedRfq(data[0])
+      const { data: rfqsData } = await supabase.from('rfqs').select('*')
+      if (rfqsData && rfqsData.length > 0) {
+        setRfqs(rfqsData)
+        setSelectedRfq(rfqsData[0])
+        
+        const { data: quotesData } = await supabase
+          .from('quotations')
+          .select('*, vendors(*)')
+          .eq('rfq_id', rfqsData[0].id)
+        if (quotesData) setQuotations(quotesData)
       }
       setLoading(false)
     }
-    loadRFQs()
+    loadData()
   }, [])
 
-  const handleApprove = async (vendorName, amount, quotationId) => {
+  const handleApprove = async (quotationId, amount) => {
     if (!selectedRfq) return
     setSubmitting(true)
 
@@ -51,6 +58,7 @@ export default function QuotationCompare() {
       po_number: poNumber,
       status: 'Pending',
       grand_total: amount,
+      quotation_id: quotationId,
       approved_by: user?.id
     }).select().single()
 
@@ -280,7 +288,7 @@ export default function QuotationCompare() {
                   <td key={vIdx} className="px-6 py-6 border-r border-gray-200 last:border-r-0">
                     <div className="flex flex-col gap-2">
                       <button
-                        onClick={() => handleApprove(vendor.name, vendor.total, vendor.id)}
+                        onClick={() => handleApprove(null, vendor.total)}
                         disabled={submitting}
                         className={`flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition shadow-sm ${
                           vendor.isRecommended 
