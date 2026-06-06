@@ -132,7 +132,23 @@ export default function QuotationCompare() {
 
   return (
     <Layout>
-      <div className="space-y-6 max-w-5xl mx-auto">
+      <div className="space-y-6 max-w-5xl mx-auto px-4 sm:px-0">
+        
+        {/* Navigation Tabs for Quotations */}
+        <div className="flex items-center gap-6 border-b border-gray-300 pb-2 mb-6">
+          <button 
+            className="text-[15px] font-medium text-gray-500 hover:text-gray-900 pb-2 -mb-[9px]"
+            onClick={() => navigate('/quotations')}
+          >
+            Submit Quotation
+          </button>
+          <button 
+            className="text-[15px] font-medium text-green-600 border-b-2 border-green-600 pb-2 -mb-[9px]"
+          >
+            Compare Quotations
+          </button>
+        </div>
+
         <div className="mb-8">
           <h1 className="text-[28px] font-medium text-gray-900 mb-1">Quotation Comparison</h1>
           <p className="text-gray-600 text-[15px]">
