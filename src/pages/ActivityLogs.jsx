@@ -18,21 +18,78 @@ export default function ActivityLogs() {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('All')
   const [showBanner, setShowBanner] = useState(true)
+  const [notifications, setNotifications] = useState([])
+  const [pendingComparisons, setPendingComparisons] = useState([])
 
-  // High fidelity mock logs if DB is empty
-  const mockLogs = [
-    { id: '1', action: 'RFQ Office Furniture Q2 created and sent to 3 vendors', created_at: new Date('2025-05-10T09:30:00').toISOString(), type: 'RFQ', user: 'John Doe' },
-    { id: '2', action: 'Quotation received from Infra Supplies — ₹95,400', created_at: new Date('2025-05-15T14:15:00').toISOString(), type: 'Quotation', user: 'System' },
-    { id: '3', action: 'Quotation received from TechCore Ltd — ₹96,760', created_at: new Date('2025-05-16T11:00:00').toISOString(), type: 'Quotation', user: 'System' },
-    { id: '4', action: 'PO #PO-2025-7098 pending approval by Manager', created_at: new Date('2025-05-22T16:45:00').toISOString(), type: 'Approval', user: 'John Doe' },
-    { id: '5', action: 'Purchase Order PO-2025-7098 approved by Sarah Manager', created_at: new Date('2025-05-23T10:00:00').toISOString(), type: 'Approval', user: 'Sarah Johnson' },
-    { id: '6', action: 'Invoice INV-2025-0234 generated and sent to vendor email', created_at: new Date('2025-05-24T15:00:00').toISOString(), type: 'Invoice', user: 'System' },
-    { id: '7', action: 'Vendor registered: FurnCo (GST: 24DDDDD3333D4W8)', created_at: new Date('2025-05-20T12:00:00').toISOString(), type: 'Vendor', user: 'Admin' }
-  ]
+  async function loadNotificationsAndComparisons() {
+    if (!profile?.company_id) return
+    try {
+      const [rfqsRes, posRes] = await Promise.all([
+        supabase.from('rfqs')
+          .select('id, title, deadline, quotations(id)')
+          .eq('status', 'Open')
+          .eq('company_id', profile.company_id),
+        supabase.from('purchase_orders')
+          .select('id, po_number, status')
+          .eq('company_id', profile.company_id)
+          .order('created_at', { ascending: false })
+      ])
+
+      const list = []
+      
+      // RFQ deadlines
+      if (rfqsRes.data) {
+        rfqsRes.data.forEach(rfq => {
+          const dl = new Date(rfq.deadline)
+          const diffDays = Math.ceil((dl.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+          if (diffDays > 0 && diffDays <= 7) {
+            list.push({
+              id: `rfq-${rfq.id}`,
+              title: 'RFQ deadline approaching',
+              text: `"${rfq.title}" will close for submissions in ${diffDays} day(s).`,
+              type: 'warning'
+            })
+          }
+        })
+
+        // Pending comparisons (RFQs with status 'Open' and having submitted quotes)
+        const withQuotes = rfqsRes.data.filter(r => r.quotations && r.quotations.length > 0)
+        setPendingComparisons(withQuotes)
+      }
+
+      // Pending POs or approved POs
+      if (posRes.data) {
+        posRes.data.forEach(po => {
+          if (po.status === 'Pending') {
+            list.push({
+              id: `po-${po.id}`,
+              title: 'PO approval pending',
+              text: `Purchase Order ${po.po_number} requires manager approval.`,
+              type: 'info'
+            })
+          } else if (po.status === 'Approved') {
+            list.push({
+              id: `po-approved-${po.id}`,
+              title: 'Invoice generated',
+              text: `Tax Invoice for ${po.po_number} is available for download.`,
+              type: 'success'
+            })
+          }
+        })
+      }
+
+      setNotifications(list.slice(0, 5))
+    } catch (e) {
+      console.error(e)
+    }
+  }
 
   async function loadLogs() {
     setLoading(true)
     if (!profile?.company_id) return
+    
+    loadNotificationsAndComparisons()
+
     const { data, error } = await supabase
       .from('activity_logs')
       .select('*, profiles(full_name)')
@@ -42,11 +99,12 @@ export default function ActivityLogs() {
     if (!error && data && data.length > 0) {
       const mappedLogs = data.map(log => {
         let type = 'System'
-        if (log.action.toLowerCase().includes('rfq')) type = 'RFQ'
-        else if (log.action.toLowerCase().includes('quotation')) type = 'Quotation'
-        else if (log.action.toLowerCase().includes('po') || log.action.toLowerCase().includes('approved') || log.action.toLowerCase().includes('approved')) type = 'Approval'
-        else if (log.action.toLowerCase().includes('invoice')) type = 'Invoice'
-        else if (log.action.toLowerCase().includes('vendor')) type = 'Vendor'
+        const lowerAction = log.action.toLowerCase()
+        if (lowerAction.includes('rfq')) type = 'RFQ'
+        else if (lowerAction.includes('quotation')) type = 'Quotation'
+        else if (lowerAction.includes('po') || lowerAction.includes('approv')) type = 'Approval'
+        else if (lowerAction.includes('invoice')) type = 'Invoice'
+        else if (lowerAction.includes('vendor')) type = 'Vendor'
 
         return {
           id: log.id,
@@ -58,7 +116,7 @@ export default function ActivityLogs() {
       })
       setActivities(mappedLogs)
     } else {
-      setActivities(mockLogs)
+      setActivities([])
     }
     setLoading(false)
   }
@@ -137,13 +195,15 @@ export default function ActivityLogs() {
         </div>
 
         {/* Dismissible Info Banner */}
-        {showBanner && (
+        {showBanner && pendingComparisons.length > 0 && (
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center justify-between shadow-sm">
             <div className="flex items-center gap-3 text-blue-800 text-sm font-medium">
               <Info className="w-5 h-5 shrink-0 text-blue-600" />
-              <span>3 quotations received for RFQ: Office Furniture Procurement Q2. Ready for comparison.</span>
+              <span>
+                You have quotations ready for comparison on RFQ(s): {pendingComparisons.map(c => `"${c.title}"`).join(', ')}.
+              </span>
               <a href="/quotations/compare" className="font-bold underline hover:text-blue-900 ml-1">
-                View Now &rarr;
+                Compare Now &rarr;
               </a>
             </div>
             <button
@@ -201,32 +261,43 @@ export default function ActivityLogs() {
               Recent Notifications
             </h2>
 
-            {/* Warning Card */}
-            <div className="bg-amber-50/50 border border-amber-200 rounded-xl p-4 shadow-sm flex gap-3">
-              <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
-              <div>
-                <p className="text-sm font-bold text-amber-900">RFQ deadline approaching</p>
-                <p className="text-xs text-amber-600 mt-1">Office Furniture Q2 will close for submissions in 2 days.</p>
+            {notifications.length === 0 ? (
+              <div className="bg-green-50/50 border border-green-200 rounded-xl p-4 shadow-sm flex gap-3 text-green-950">
+                <CheckCircle className="w-5 h-5 text-green-500 shrink-0" />
+                <div>
+                  <p className="text-sm font-bold">System is up to date</p>
+                  <p className="text-xs text-green-600 mt-1">No warnings or tasks require action at this moment.</p>
+                </div>
               </div>
-            </div>
+            ) : (
+              notifications.map((notif) => {
+                const isWarning = notif.type === 'warning'
+                const isSuccess = notif.type === 'success'
 
-            {/* Success Card */}
-            <div className="bg-green-50/50 border border-green-200 rounded-xl p-4 shadow-sm flex gap-3">
-              <CheckCircle className="w-5 h-5 text-green-500 shrink-0" />
-              <div>
-                <p className="text-sm font-bold text-green-900">Invoice sent successfully</p>
-                <p className="text-xs text-green-600 mt-1">Invoice INV-2025-0234 has been acknowledged by vendor.</p>
-              </div>
-            </div>
-
-            {/* Info Card */}
-            <div className="bg-blue-50/50 border border-blue-200 rounded-xl p-4 shadow-sm flex gap-3">
-              <Info className="w-5 h-5 text-blue-500 shrink-0" />
-              <div>
-                <p className="text-sm font-bold text-blue-900">New vendor registered</p>
-                <p className="text-xs text-blue-600 mt-1">TechParts supplier has applied for registration review.</p>
-              </div>
-            </div>
+                return (
+                  <div
+                    key={notif.id}
+                    className={`border rounded-xl p-4 shadow-sm flex gap-3 ${
+                      isWarning
+                        ? 'bg-amber-50/50 border-amber-200 text-amber-900'
+                        : isSuccess
+                        ? 'bg-green-50/50 border-green-200 text-green-900'
+                        : 'bg-blue-50/50 border-blue-200 text-blue-900'
+                    }`}
+                  >
+                    {isWarning && <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />}
+                    {isSuccess && <CheckCircle className="w-5 h-5 text-green-500 shrink-0" />}
+                    {!isWarning && !isSuccess && <Info className="w-5 h-5 text-blue-500 shrink-0" />}
+                    <div>
+                      <p className="text-sm font-bold">{notif.title}</p>
+                      <p className={`text-xs mt-1 ${
+                        isWarning ? 'text-amber-600' : isSuccess ? 'text-green-600' : 'text-blue-600'
+                      }`}>{notif.text}</p>
+                    </div>
+                  </div>
+                )
+              })
+            )}
           </div>
         </div>
       </div>

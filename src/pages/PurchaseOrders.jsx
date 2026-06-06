@@ -13,52 +13,43 @@ export default function PurchaseOrders() {
   const [loading, setLoading] = useState(true)
   const [emailSent, setEmailSent] = useState(false)
 
-  // High fidelity mock data if DB has no POs
-  const mockPO = {
-    id: 'mock-po-id',
-    po_number: 'PO-2025-7098',
-    created_at: new Date('2025-05-25').toISOString(),
-    status: 'Approved',
-    quotations: {
-      total_price: 206000,
-      vendors: {
-        name: 'Infra Supplies',
-        email: 'vendor@infrasupplies.com',
-        gst_number: '27BBBBB1111B2Y6',
-        location: 'Delhi, India'
-      }
-    },
-    items: [
-      { name: 'Executive Chair', qty: 20, unit_price: 4000 },
-      { name: 'Office Desk (L-shape)', qty: 10, unit_price: 12000 },
-      { name: 'Bookshelf', qty: 5, unit_price: 1200 }
-    ]
-  }
-
   async function loadPurchaseOrders() {
     setLoading(true)
     if (!profile?.company_id) return
     const { data, error } = await supabase
       .from('purchase_orders')
-      .select('*, quotations(*, vendors(*))')
+      .select('*, quotations(*, rfqs(*), vendors(*))')
       .eq('company_id', profile.company_id)
       .order('created_at', { ascending: false })
 
     if (!error && data && data.length > 0) {
-      // Setup items since there's no separate table in basic model
-      const mappedPOs = data.map(po => ({
-        ...po,
-        items: [
-          { name: 'Executive Chair', qty: 20, unit_price: 4000 },
-          { name: 'Office Desk (L-shape)', qty: 10, unit_price: 12000 },
-          { name: 'Bookshelf', qty: 5, unit_price: 1200 }
-        ]
-      }))
+      // Setup items dynamically from RFQ description JSON
+      const mappedPOs = data.map(po => {
+        const rfqDesc = po.quotations?.rfqs?.description || ''
+        const parts = rfqDesc.split('\n\n--ITEMS_JSON--\n')
+        let parsedItems = []
+        if (parts[1]) {
+          try {
+            const rfqItems = JSON.parse(parts[1])
+            parsedItems = rfqItems.map(item => ({
+              name: item.name,
+              qty: Number(item.qty || 1),
+              unit_price: Number(item.target_price || 0)
+            }))
+          } catch (e) {
+            console.error('Failed to parse items for PO:', e)
+          }
+        }
+        return {
+          ...po,
+          items: parsedItems
+        }
+      })
       setPurchaseOrders(mappedPOs)
       setSelectedPO(mappedPOs[0])
     } else {
-      setPurchaseOrders([mockPO])
-      setSelectedPO(mockPO)
+      setPurchaseOrders([])
+      setSelectedPO(null)
     }
     setLoading(false)
   }

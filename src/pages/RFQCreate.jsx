@@ -164,7 +164,7 @@ export default function RFQCreate() {
       category: data.category,
       priority: data.priority,
       deadline: data.deadline,
-      description: data.description,
+      description: data.description + '\n\n--ITEMS_JSON--\n' + JSON.stringify(data.items),
       status: status,
       created_by: user?.id
     }

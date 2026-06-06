@@ -20,35 +20,16 @@ export default function Reports() {
   const [summary, setSummary] = useState({
     totalSpend: 0,
     activeVendors: 0,
-    deliveryRate: 94,
+    newVendors: 0,
+    spendPercent: 0,
+    deliveryRate: 0,
     monthlyPOs: 0
   })
   const [categoryData, setCategoryData] = useState([])
   const [vendorData, setVendorData] = useState([])
   const [monthlyTrend, setMonthlyTrend] = useState([])
 
-  const mockCategoryData = [
-    { name: 'IT Hardware', value: 946000 },
-    { name: 'Furniture', value: 932000 },
-    { name: 'Stationery', value: 21000 },
-    { name: 'Logistics', value: 23000 }
-  ]
 
-  const mockVendorData = [
-    { name: 'TechCore Ltd', spend: 420000, pos: 6 },
-    { name: 'Infra Supplies', spend: 310000, pos: 4 },
-    { name: 'FurnCo', spend: 100000, pos: 2 },
-    { name: 'LogiPro', spend: 80000, pos: 3 }
-  ]
-
-  const mockTrendData = [
-    { name: 'Jan', Spend: 120000 },
-    { name: 'Feb', Spend: 150000 },
-    { name: 'Mar', Spend: 190000 },
-    { name: 'Apr', Spend: 210000 },
-    { name: 'May', Spend: 243080 },
-    { name: 'Jun', Spend: 95000 }
-  ]
 
   async function loadReportsData() {
     setLoading(true)
@@ -56,20 +37,69 @@ export default function Reports() {
       if (!profile?.company_id) return
 
       // 1. Fetch counts
-      const [vendorsCount, pos] = await Promise.all([
-        supabase.from('vendors').select('*', { count: 'exact', head: true }).eq('status', 'Active').eq('company_id', profile.company_id),
+      const [vendorsRes, pos] = await Promise.all([
+        supabase.from('vendors').select('*').eq('status', 'Active').eq('company_id', profile.company_id),
         supabase.from('purchase_orders').select('*, quotations(*, vendors(*))').eq('status', 'Approved').eq('company_id', profile.company_id)
       ])
 
       const totalSpend = pos.data?.reduce((sum, p) => sum + (Number(p.grand_total) || 0), 0) || 0
-      const activeVendors = vendorsCount.count || 0
+      const activeVendors = vendorsRes.data?.length || 0
       const monthlyPOs = pos.data?.length || 0
 
+      // Calculate new vendors in last 30 days
+      const thirtyDaysAgo = new Date()
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+      const newVendorsCount = vendorsRes.data?.filter(v => new Date(v.created_at) >= thirtyDaysAgo).length || 0
+
+      // Calculate spend percent change vs last month
+      const now = new Date()
+      const thisMonth = now.getMonth()
+      const thisYear = now.getFullYear()
+      const lastMonth = thisMonth === 0 ? 11 : thisMonth - 1
+      const lastMonthYear = thisMonth === 0 ? thisYear - 1 : thisYear
+
+      let thisMonthSpend = 0
+      let lastMonthSpend = 0
+
+      if (pos.data) {
+        pos.data.forEach(p => {
+          const poDate = new Date(p.created_at)
+          if (poDate.getMonth() === thisMonth && poDate.getFullYear() === thisYear) {
+            thisMonthSpend += Number(p.grand_total) || 0
+          } else if (poDate.getMonth() === lastMonth && poDate.getFullYear() === lastMonthYear) {
+            lastMonthSpend += Number(p.grand_total) || 0
+          }
+        })
+      }
+
+      let spendPercent = 0
+      if (lastMonthSpend > 0) {
+        spendPercent = ((thisMonthSpend - lastMonthSpend) / lastMonthSpend) * 100
+      } else if (thisMonthSpend > 0) {
+        spendPercent = 100
+      }
+
+      // Calculate avg proposed delivery days
+      let totalDeliveryDays = 0
+      let posWithDeliveryDays = 0
+      if (pos.data) {
+        pos.data.forEach(p => {
+          const proposedDays = p.quotations?.delivery_days
+          if (proposedDays) {
+            totalDeliveryDays += proposedDays
+            posWithDeliveryDays += 1
+          }
+        })
+      }
+      const avgDeliveryDays = posWithDeliveryDays > 0 ? Math.round(totalDeliveryDays / posWithDeliveryDays) : 0
+
       setSummary({
-        totalSpend: totalSpend || 240000, // fallbacks
-        activeVendors: activeVendors || 28,
-        deliveryRate: 94,
-        monthlyPOs: monthlyPOs || 3
+        totalSpend: totalSpend,
+        activeVendors: activeVendors,
+        newVendors: newVendorsCount,
+        spendPercent: spendPercent,
+        deliveryRate: avgDeliveryDays,
+        monthlyPOs: monthlyPOs
       })
 
       // Aggregate category spend
@@ -83,7 +113,7 @@ export default function Reports() {
         name: k,
         value: categoryMap[k]
       }))
-      setCategoryData(categories.length > 0 ? categories : mockCategoryData)
+      setCategoryData(categories)
 
       // Aggregate vendor spend
       const vendorMap = {}
@@ -97,9 +127,36 @@ export default function Reports() {
       })
 
       const vendorsSorted = Object.values(vendorMap).sort((a, b) => b.spend - a.spend)
-      setVendorData(vendorsSorted.length > 0 ? vendorsSorted : mockVendorData)
+      setVendorData(vendorsSorted)
 
-      setMonthlyTrend(mockTrendData)
+      // 3. Prepare Monthly Trend Chart Data (group POs by month of last 6 months)
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+      const last6Months = []
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+        last6Months.push({
+          monthName: months[d.getMonth()],
+          monthNum: d.getMonth(),
+          year: d.getFullYear(),
+          amount: 0
+        })
+      }
+
+      if (pos.data) {
+        pos.data.forEach(p => {
+          const poDate = new Date(p.created_at)
+          last6Months.forEach(m => {
+            if (poDate.getMonth() === m.monthNum && poDate.getFullYear() === m.year) {
+              m.amount += Number(p.grand_total) || 0
+            }
+          })
+        })
+      }
+
+      setMonthlyTrend(last6Months.map(m => ({
+        name: m.monthName,
+        Spend: m.amount
+      })))
 
     } catch (e) {
       console.error(e)
@@ -167,9 +224,9 @@ export default function Reports() {
                   <p className="text-3xl font-bold text-gray-900">
                     ₹{summary.totalSpend.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                   </p>
-                  <span className="text-xs text-green-600 font-bold flex items-center gap-0.5">
-                    <TrendingUp className="w-3.5 h-3.5" />
-                    <span>+12.4%</span>
+                  <span className={`text-xs font-bold flex items-center gap-0.5 ${summary.spendPercent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    <TrendingUp className={`w-3.5 h-3.5 ${summary.spendPercent >= 0 ? '' : 'rotate-180'}`} />
+                    <span>{summary.spendPercent >= 0 ? '+' : ''}{summary.spendPercent.toFixed(1)}%</span>
                   </span>
                 </div>
                 <p className="text-xs text-gray-500 mt-1">vs last month</p>
@@ -182,23 +239,27 @@ export default function Reports() {
                   <p className="text-3xl font-bold text-gray-900">{summary.activeVendors}</p>
                   <span className="text-xs text-green-600 font-bold flex items-center gap-0.5">
                     <Users className="w-3.5 h-3.5" />
-                    <span>+3 new</span>
+                    <span>+{summary.newVendors} new</span>
                   </span>
                 </div>
                 <p className="text-xs text-gray-500 mt-1">Registered profile list</p>
               </div>
 
-              {/* On-Time Delivery Rate */}
+              {/* Avg Delivery Time */}
               <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-                <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">On-Time Delivery</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Avg. Delivery</p>
                 <div className="flex items-baseline gap-2 mt-2">
-                  <p className="text-3xl font-bold text-gray-900">{summary.deliveryRate}%</p>
-                  <span className="text-xs text-green-600 font-bold flex items-center gap-0.5">
-                    <Award className="w-3.5 h-3.5" />
-                    <span>Grade A</span>
-                  </span>
+                  <p className="text-3xl font-bold text-gray-900">
+                    {summary.deliveryRate > 0 ? `${summary.deliveryRate} Days` : 'N/A'}
+                  </p>
+                  {summary.deliveryRate > 0 && (
+                    <span className="text-xs text-green-600 font-bold flex items-center gap-0.5">
+                      <Award className="w-3.5 h-3.5" />
+                      <span>{summary.deliveryRate <= 15 ? 'Fast' : 'Standard'}</span>
+                    </span>
+                  )}
                 </div>
-                <p className="text-xs text-gray-500 mt-1">Vendor performance average</p>
+                <p className="text-xs text-gray-500 mt-1">Vendor proposed delivery</p>
               </div>
 
               {/* Monthly POs */}
@@ -222,24 +283,28 @@ export default function Reports() {
                 <div>
                   <h2 className="text-sm font-bold uppercase tracking-wider text-gray-500 mb-4">Spend by Category</h2>
                   <div className="space-y-4 py-2">
-                    {categoryData.map((cat, idx) => {
-                      const maxVal = Math.max(...categoryData.map(c => c.value))
-                      const percentage = maxVal > 0 ? (cat.value / maxVal) * 100 : 0
-                      return (
-                        <div key={idx} className="space-y-1.5">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="font-semibold text-gray-800">{cat.name}</span>
-                            <span className="font-bold text-gray-900">₹{cat.value.toLocaleString('en-IN')}</span>
+                    {categoryData.length === 0 ? (
+                      <div className="text-center py-10 text-gray-400 text-xs font-semibold">No spend recorded yet.</div>
+                    ) : (
+                      categoryData.map((cat, idx) => {
+                        const maxVal = Math.max(...categoryData.map(c => c.value))
+                        const percentage = maxVal > 0 ? (cat.value / maxVal) * 100 : 0
+                        return (
+                          <div key={idx} className="space-y-1.5">
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="font-semibold text-gray-800">{cat.name}</span>
+                              <span className="font-bold text-gray-900">₹{cat.value.toLocaleString('en-IN')}</span>
+                            </div>
+                            <div className="w-full bg-gray-100 h-3.5 rounded-full overflow-hidden">
+                              <div
+                                className="bg-green-500 h-full rounded-full transition-all duration-500"
+                                style={{ width: `${percentage}%` }}
+                              />
+                            </div>
                           </div>
-                          <div className="w-full bg-gray-100 h-3.5 rounded-full overflow-hidden">
-                            <div
-                              className="bg-green-500 h-full rounded-full transition-all duration-500"
-                              style={{ width: `${percentage}%` }}
-                            />
-                          </div>
-                        </div>
-                      )
-                    })}
+                        )
+                      })
+                    )}
                   </div>
                 </div>
               </div>
@@ -258,15 +323,23 @@ export default function Reports() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100 text-gray-700">
-                        {vendorData.map((vendor, idx) => (
-                          <tr key={idx} className="hover:bg-gray-50/50">
-                            <td className="px-4 py-3 font-semibold text-gray-900">{vendor.name}</td>
-                            <td className="px-4 py-3 text-right font-bold text-green-600">
-                              ₹{vendor.spend.toLocaleString('en-IN')}
+                        {vendorData.length === 0 ? (
+                          <tr>
+                            <td colSpan={3} className="px-4 py-8 text-center text-gray-400 text-xs font-semibold">
+                              No vendor spend transactions found.
                             </td>
-                            <td className="px-4 py-3 text-center font-medium text-gray-500">{vendor.pos}</td>
                           </tr>
-                        ))}
+                        ) : (
+                          vendorData.map((vendor, idx) => (
+                            <tr key={idx} className="hover:bg-gray-50/50">
+                              <td className="px-4 py-3 font-semibold text-gray-900">{vendor.name}</td>
+                              <td className="px-4 py-3 text-right font-bold text-green-600">
+                                ₹{vendor.spend.toLocaleString('en-IN')}
+                              </td>
+                              <td className="px-4 py-3 text-center font-medium text-gray-500">{vendor.pos}</td>
+                            </tr>
+                          ))
+                        )}
                       </tbody>
                     </table>
                   </div>

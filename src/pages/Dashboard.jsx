@@ -45,7 +45,7 @@ export default function Dashboard() {
       const [rfqs, approvals, pos, allPos] = await Promise.all([
         supabase.from('rfqs').select('*', { count: 'exact', head: true }).eq('status', 'Open').eq('company_id', profile.company_id),
         supabase.from('purchase_orders').select('*', { count: 'exact', head: true }).eq('status', 'Pending').eq('company_id', profile.company_id),
-        supabase.from('purchase_orders').select('grand_total').eq('status', 'Approved').eq('company_id', profile.company_id),
+        supabase.from('purchase_orders').select('grand_total, created_at').eq('status', 'Approved').eq('company_id', profile.company_id),
         supabase.from('purchase_orders').select('*, quotations(*, vendors(*))').eq('company_id', profile.company_id).order('created_at', { ascending: false })
       ])
 

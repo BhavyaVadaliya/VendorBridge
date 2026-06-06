@@ -17,10 +17,7 @@ export default function Quotations() {
   const [selectedVendorId, setSelectedVendorId] = useState('')
 
   // Form State
-  const [items, setItems] = useState([
-    { name: 'Ergonomic chair', qty: 25, price: 3500, total: 87500, delivery: 7 },
-    { name: 'Tech Desk', qty: 10, price: 8200, total: 82000, delivery: 14 }
-  ])
+  const [items, setItems] = useState([])
   const [gst, setGst] = useState('18')
   const [notes, setNotes] = useState('Payment terms: 30 days net...')
 
@@ -51,6 +48,44 @@ export default function Quotations() {
       loadData()
     }
   }, [profile?.company_id])
+
+  useEffect(() => {
+    if (!selectedRfqId || rfqs.length === 0) {
+      setItems([])
+      return
+    }
+    const selectedRfq = rfqs.find(r => r.id === selectedRfqId)
+    if (selectedRfq && selectedRfq.description) {
+      const parts = selectedRfq.description.split('\n\n--ITEMS_JSON--\n')
+      if (parts[1]) {
+        try {
+          const rfqItems = JSON.parse(parts[1])
+          const parsedItems = rfqItems.map(item => ({
+            name: item.name,
+            qty: Number(item.qty || 1),
+            price: Number(item.target_price || 0),
+            total: Number(item.qty || 1) * Number(item.target_price || 0),
+            delivery: 7
+          }))
+          setItems(parsedItems)
+        } catch (e) {
+          console.error(e)
+          setItems([])
+        }
+      } else {
+        setItems([])
+      }
+    } else {
+      setItems([])
+    }
+  }, [selectedRfqId, rfqs])
+
+  const getCleanDescription = () => {
+    const rfq = rfqs.find(r => r.id === selectedRfqId)
+    if (!rfq) return ''
+    const parts = rfq.description?.split('\n\n--ITEMS_JSON--\n') || []
+    return parts[0] || ''
+  }
 
   const handlePriceChange = (index, val) => {
     const newItems = [...items]
@@ -179,7 +214,7 @@ export default function Quotations() {
             <div className="border border-gray-400 rounded-lg p-4 bg-white">
               <p className="text-xs text-gray-600 mb-1 font-medium">RFQ Summary</p>
               <p className="text-sm text-gray-900">
-                {rfqs.find(r => r.id === selectedRfqId)?.description || 'Ergonomic chair * 25, standing desk * 10 - category furniture'}
+                {getCleanDescription() || 'No description provided.'}
               </p>
             </div>
 

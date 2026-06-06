@@ -14,39 +14,6 @@ export default function QuotationCompare() {
   const [submitting, setSubmitting] = useState(false)
   const [selectedVendorId, setSelectedVendorId] = useState(null)
 
-  // Exact mock data matching the Excalidraw Screen 7 mockup
-  const MOCK_VENDORS = [
-    {
-      id: '1',
-      name: 'Infra Supplies',
-      isLowestPrice: true,
-      grandTotal: '185000',
-      gst: '18',
-      delivery: '10',
-      rating: '4.5/5',
-      terms: '30 days'
-    },
-    {
-      id: '2',
-      name: 'TechCore LTD',
-      isLowestPrice: false,
-      grandTotal: '200010',
-      gst: '18',
-      delivery: '14',
-      rating: '4.2/5',
-      terms: '30 days'
-    },
-    {
-      id: '3',
-      name: 'Office Wood Co.',
-      isLowestPrice: false,
-      grandTotal: '214500',
-      gst: '18',
-      delivery: '7',
-      rating: '3.8/5',
-      terms: '15 days'
-    }
-  ]
 
   useEffect(() => {
     async function loadData() {
@@ -75,10 +42,10 @@ export default function QuotationCompare() {
             })
             setSelectedVendorId(lowestId)
           } else {
-            setSelectedVendorId('1')
+            setSelectedVendorId(null)
           }
         } else {
-          setSelectedVendorId('1')
+          setSelectedVendorId(null)
         }
       }
       setLoading(false)
@@ -88,8 +55,8 @@ export default function QuotationCompare() {
     }
   }, [profile?.company_id])
 
-  // Map real DB data if available, otherwise use exact Excalidraw mock
-  let displayVendors = MOCK_VENDORS
+  // Map real DB data if available
+  let displayVendors = []
   if (quotations.length > 0) {
     // Find lowest price
     let minPrice = Infinity
@@ -123,7 +90,7 @@ export default function QuotationCompare() {
     const { data: { user } } = await supabase.auth.getUser()
 
     // If it's real data from DB, we insert the PO
-    if (quotations.length > 0) {
+    if (quotations.length > 0 && vendorData) {
       const payload = {
         po_number: poNumber,
         status: 'Pending',
@@ -149,24 +116,13 @@ export default function QuotationCompare() {
         await supabase.from('activity_logs').insert(activityPayload)
         navigate('/approvals')
       }
-    } else {
-      // Mock flow
-      const activityPayloadMock = {
-        action: `Quotation approved for mock RFQ. PO ${poNumber} generated for ${vendorData.name}.`,
-        entity_type: 'purchase_order',
-        user_id: user?.id
-      }
-      if (profile?.company_id) {
-        activityPayloadMock.company_id = profile.company_id
-      }
-      await supabase.from('activity_logs').insert(activityPayloadMock)
-      navigate('/approvals')
     }
     setSubmitting(false)
   }
 
-  const rfqTitle = selectedRfq?.title || 'office furniture procurement q2'
-  const quotationCount = quotations.length > 0 ? quotations.length : 3
+  const rfqTitle = selectedRfq?.title || 'No RFQs Available'
+  const quotationCount = quotations.length
+
 
   return (
     <Layout>
@@ -198,6 +154,10 @@ export default function QuotationCompare() {
            <div className="flex items-center justify-center py-20">
              <div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
            </div>
+        ) : displayVendors.length === 0 ? (
+          <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-500 shadow-sm font-semibold">
+            No quotations submitted yet for this RFQ.
+          </div>
         ) : (
           <div className="bg-white p-6 shadow-sm border border-gray-300 rounded-lg">
             <div className="overflow-x-auto">
