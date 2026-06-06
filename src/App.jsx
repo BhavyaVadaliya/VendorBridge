@@ -10,6 +10,7 @@ import Approvals from './pages/Approvals'
 import PurchaseOrders from './pages/PurchaseOrders'
 import ActivityLogs from './pages/ActivityLogs'
 import Reports from './pages/Reports'
+import Settings from './pages/Settings'
 import ProtectedRoute from './components/ProtectedRoute'
 import { AuthProvider } from './context/AuthContext'
 import SuperAdminPanel from './pages/SuperAdminPanel'
@@ -100,6 +101,14 @@ export default function App() {
           path="/super-admin-panel"
           element={
             <SuperAdminPanel />
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <Settings />
+            </ProtectedRoute>
           }
         />
       </Routes>
