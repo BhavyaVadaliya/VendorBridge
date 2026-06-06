@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
 import Layout from '../components/Layout'
 import { Plus, Search, Edit2, ToggleLeft, ToggleRight, X } from 'lucide-react'
 
@@ -11,6 +12,7 @@ const statusColors = {
 }
 
 export default function Vendors() {
+  const { profile } = useAuth()
   const [vendors, setVendors] = useState([])
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
@@ -21,10 +23,12 @@ export default function Vendors() {
   const { register, handleSubmit, reset, formState: { errors } } = useForm()
 
   async function fetchVendors() {
+    if (!profile?.company_id) return
     setLoading(true)
     const { data, error } = await supabase
       .from('vendors')
       .select('*')
+      .eq('company_id', profile.company_id)
       .order('created_at', { ascending: false })
     if (!error && data) {
       setVendors(data)
@@ -33,20 +37,23 @@ export default function Vendors() {
   }
 
   useEffect(() => {
-    fetchVendors()
-  }, [])
+    if (profile?.company_id) {
+      fetchVendors()
+    }
+  }, [profile?.company_id])
 
   const logActivity = async (action, entityId) => {
     const { data: { user } } = await supabase.auth.getUser()
     await supabase.from('activity_logs').insert({
       action,
       entity_type: 'vendor',
-      user_id: user?.id
+      user_id: user?.id,
+      company_id: profile?.company_id
     })
   }
 
   const onSubmit = async (values) => {
-    const { data, error } = await supabase.from('vendors').insert({
+    const payload = {
       name: values.name,
       category: values.category,
       gst_number: values.gst_number,
@@ -54,7 +61,12 @@ export default function Vendors() {
       email: values.email,
       location: values.location,
       status: 'Active'
-    }).select().single()
+    }
+    if (profile?.company_id) {
+      payload.company_id = profile.company_id
+    }
+
+    const { data, error } = await supabase.from('vendors').insert(payload).select().single()
 
     if (error) {
       alert(error.message)

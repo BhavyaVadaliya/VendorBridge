@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
 import Layout from '../components/Layout'
 import { Download, TrendingUp, Users, Calendar, Award } from 'lucide-react'
 import {
@@ -14,6 +15,7 @@ import {
 } from 'recharts'
 
 export default function Reports() {
+  const { profile } = useAuth()
   const [loading, setLoading] = useState(true)
   const [summary, setSummary] = useState({
     totalSpend: 0,
@@ -51,10 +53,12 @@ export default function Reports() {
   async function loadReportsData() {
     setLoading(true)
     try {
+      if (!profile?.company_id) return
+
       // 1. Fetch counts
       const [vendorsCount, pos] = await Promise.all([
-        supabase.from('vendors').select('*', { count: 'exact', head: true }).eq('status', 'Active'),
-        supabase.from('purchase_orders').select('*, quotations(*, vendors(*))').eq('status', 'Approved')
+        supabase.from('vendors').select('*', { count: 'exact', head: true }).eq('status', 'Active').eq('company_id', profile.company_id),
+        supabase.from('purchase_orders').select('*, quotations(*, vendors(*))').eq('status', 'Approved').eq('company_id', profile.company_id)
       ])
 
       const totalSpend = pos.data?.reduce((sum, p) => sum + (Number(p.grand_total) || 0), 0) || 0
@@ -105,8 +109,10 @@ export default function Reports() {
   }
 
   useEffect(() => {
-    loadReportsData()
-  }, [])
+    if (profile?.company_id) {
+      loadReportsData()
+    }
+  }, [profile?.company_id])
 
   const handleExport = () => {
     const dataStr = `data:text/json;charset=utf-8,${encodeURIComponent(

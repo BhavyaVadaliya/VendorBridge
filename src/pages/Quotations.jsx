@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
 import Layout from '../components/Layout'
 
 export default function Quotations() {
   const navigate = useNavigate()
+  const { profile } = useAuth()
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   
@@ -26,9 +28,11 @@ export default function Quotations() {
     async function loadData() {
       setLoading(true)
       
+      if (!profile?.company_id) return
+
       const [rfqRes, vendorRes] = await Promise.all([
-        supabase.from('rfqs').select('*').eq('status', 'Open'),
-        supabase.from('vendors').select('*').eq('status', 'Active')
+        supabase.from('rfqs').select('*').eq('status', 'Open').eq('company_id', profile.company_id),
+        supabase.from('vendors').select('*').eq('status', 'Active').eq('company_id', profile.company_id)
       ])
 
       if (rfqRes.data && rfqRes.data.length > 0) {
@@ -43,8 +47,10 @@ export default function Quotations() {
 
       setLoading(false)
     }
-    loadData()
-  }, [])
+    if (profile?.company_id) {
+      loadData()
+    }
+  }, [profile?.company_id])
 
   const handlePriceChange = (index, val) => {
     const newItems = [...items]
@@ -74,7 +80,7 @@ export default function Quotations() {
     // Calculate max delivery days
     const maxDelivery = Math.max(...items.map(i => i.delivery))
 
-    const { error } = await supabase.from('quotations').insert({
+    const quotationPayload = {
       rfq_id: selectedRfqId,
       vendor_id: selectedVendorId,
       total_price: grandTotal,
@@ -82,7 +88,12 @@ export default function Quotations() {
       payment_terms: notes,
       notes: notes,
       status: 'Submitted'
-    })
+    }
+    if (profile?.company_id) {
+      quotationPayload.company_id = profile.company_id
+    }
+
+    const { error } = await supabase.from('quotations').insert(quotationPayload)
 
     if (error) {
       alert(error.message)
@@ -90,11 +101,16 @@ export default function Quotations() {
       const { data: { user } } = await supabase.auth.getUser()
       const selectedRfq = rfqs.find(r => r.id === selectedRfqId)
       
-      await supabase.from('activity_logs').insert({
+      const activityPayload = {
         action: `New quotation submitted for RFQ: ${selectedRfq?.title || 'Unknown'}`,
         entity_type: 'quotation',
         user_id: user?.id
-      })
+      }
+      if (profile?.company_id) {
+        activityPayload.company_id = profile.company_id
+      }
+
+      await supabase.from('activity_logs').insert(activityPayload)
       
       // Full flow: Redirect to Compare screen to see the submitted quote!
       navigate('/quotations/compare')

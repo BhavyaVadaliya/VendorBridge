@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
 import Layout from '../components/Layout'
 import { Check, Clock, ArrowLeft } from 'lucide-react'
 
 export default function Approvals() {
   const navigate = useNavigate()
+  const { profile } = useAuth()
   const [loading, setLoading] = useState(true)
   const [pendingList, setPendingList] = useState([])
   const [selectedPO, setSelectedPO] = useState(null)
@@ -19,10 +21,13 @@ export default function Approvals() {
     const { data: { user } } = await supabase.auth.getUser()
     setCurrentUser(user)
 
+    if (!profile?.company_id) return
+
     const { data, error } = await supabase
       .from('purchase_orders')
       .select('*, quotations(*, rfqs(*), vendors(*))')
       .eq('status', 'Pending')
+      .eq('company_id', profile.company_id)
       .order('created_at', { ascending: false })
 
     if (!error && data) {
@@ -31,7 +36,9 @@ export default function Approvals() {
     setLoading(false)
   }
 
-  useEffect(() => { fetchApprovals() }, [])
+  useEffect(() => { 
+    if (profile?.company_id) fetchApprovals() 
+  }, [profile?.company_id])
 
   const handleSelectPO = (po) => {
     setSelectedPO({
@@ -58,11 +65,16 @@ export default function Approvals() {
     if (error) {
       alert(error.message)
     } else {
-      await supabase.from('activity_logs').insert({
+      const activityPayload = {
         action: `Purchase Order ${status === 'Approved' ? 'approved' : 'rejected'} by manager. Remarks: ${remarks || 'None'}`,
         entity_type: 'purchase_order',
         user_id: currentUser?.id
-      })
+      }
+      if (profile?.company_id) {
+        activityPayload.company_id = profile.company_id
+      }
+
+      await supabase.from('activity_logs').insert(activityPayload)
       
       // Refresh list and go back to list view
       await fetchApprovals()

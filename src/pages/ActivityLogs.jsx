@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
 import Layout from '../components/Layout'
 import { Clock, Info, ShieldCheck, AlertTriangle, CheckCircle, Download, X } from 'lucide-react'
 
@@ -12,6 +13,7 @@ const activityColors = {
 }
 
 export default function ActivityLogs() {
+  const { profile } = useAuth()
   const [activities, setActivities] = useState([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('All')
@@ -30,9 +32,11 @@ export default function ActivityLogs() {
 
   async function loadLogs() {
     setLoading(true)
+    if (!profile?.company_id) return
     const { data, error } = await supabase
       .from('activity_logs')
       .select('*, profiles(full_name)')
+      .eq('company_id', profile.company_id)
       .order('created_at', { ascending: false })
 
     if (!error && data && data.length > 0) {
@@ -60,8 +64,10 @@ export default function ActivityLogs() {
   }
 
   useEffect(() => {
-    loadLogs()
-  }, [])
+    if (profile?.company_id) {
+      loadLogs()
+    }
+  }, [profile?.company_id])
 
   const handleExport = () => {
     const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(

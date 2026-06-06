@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
 import Layout from '../components/Layout'
 import { Download, Printer, Mail, Check } from 'lucide-react'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
 export default function PurchaseOrders() {
+  const { profile } = useAuth()
   const [purchaseOrders, setPurchaseOrders] = useState([])
   const [selectedPO, setSelectedPO] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -35,9 +37,11 @@ export default function PurchaseOrders() {
 
   async function loadPurchaseOrders() {
     setLoading(true)
+    if (!profile?.company_id) return
     const { data, error } = await supabase
       .from('purchase_orders')
       .select('*, quotations(*, vendors(*))')
+      .eq('company_id', profile.company_id)
       .order('created_at', { ascending: false })
 
     if (!error && data && data.length > 0) {
@@ -60,8 +64,10 @@ export default function PurchaseOrders() {
   }
 
   useEffect(() => {
-    loadPurchaseOrders()
-  }, [])
+    if (profile?.company_id) {
+      loadPurchaseOrders()
+    }
+  }, [profile?.company_id])
 
   const handlePrint = () => {
     window.print()
@@ -77,11 +83,15 @@ export default function PurchaseOrders() {
 
     // Log action
     const { data: { user } } = await supabase.auth.getUser()
-    await supabase.from('activity_logs').insert({
+    const activityPayload = {
       action: `Email PO sent for ${selectedPO.po_number}`,
       entity_type: 'purchase_order',
       user_id: user?.id
-    })
+    }
+    if (profile?.company_id) {
+      activityPayload.company_id = profile.company_id
+    }
+    await supabase.from('activity_logs').insert(activityPayload)
   }
 
   const handleDownloadPDF = () => {

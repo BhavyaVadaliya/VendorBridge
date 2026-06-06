@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
 import Layout from '../components/Layout'
 
 export default function QuotationCompare() {
   const navigate = useNavigate()
+  const { profile } = useAuth()
   const [rfqs, setRfqs] = useState([])
   const [selectedRfq, setSelectedRfq] = useState(null)
   const [quotations, setQuotations] = useState([])
@@ -48,8 +50,9 @@ export default function QuotationCompare() {
 
   useEffect(() => {
     async function loadData() {
+      if (!profile?.company_id) return
       setLoading(true)
-      const { data: rfqsData } = await supabase.from('rfqs').select('*')
+      const { data: rfqsData } = await supabase.from('rfqs').select('*').eq('company_id', profile.company_id)
       if (rfqsData && rfqsData.length > 0) {
         setRfqs(rfqsData)
         setSelectedRfq(rfqsData[0])
@@ -57,6 +60,7 @@ export default function QuotationCompare() {
           .from('quotations')
           .select('*, vendors(*)')
           .eq('rfq_id', rfqsData[0].id)
+          .eq('company_id', profile.company_id)
         if (quotesData) {
           setQuotations(quotesData)
           if (quotesData.length > 0) {
@@ -79,8 +83,10 @@ export default function QuotationCompare() {
       }
       setLoading(false)
     }
-    loadData()
-  }, [])
+    if (profile?.company_id) {
+      loadData()
+    }
+  }, [profile?.company_id])
 
   // Map real DB data if available, otherwise use exact Excalidraw mock
   let displayVendors = MOCK_VENDORS
@@ -125,24 +131,35 @@ export default function QuotationCompare() {
         quotation_id: vendorData.id,
         approved_by: user?.id
       }
+      if (profile?.company_id) {
+        payload.company_id = profile.company_id
+      }
       const { error } = await supabase.from('purchase_orders').insert(payload).select().single()
       if (error) {
         alert(error.message)
       } else {
-        await supabase.from('activity_logs').insert({
+        const activityPayload = {
           action: `Quotation approved for ${selectedRfq.title}. PO ${poNumber} generated for ${vendorData.name}.`,
           entity_type: 'purchase_order',
           user_id: user?.id
-        })
+        }
+        if (profile?.company_id) {
+          activityPayload.company_id = profile.company_id
+        }
+        await supabase.from('activity_logs').insert(activityPayload)
         navigate('/approvals')
       }
     } else {
       // Mock flow
-      await supabase.from('activity_logs').insert({
+      const activityPayloadMock = {
         action: `Quotation approved for mock RFQ. PO ${poNumber} generated for ${vendorData.name}.`,
         entity_type: 'purchase_order',
         user_id: user?.id
-      })
+      }
+      if (profile?.company_id) {
+        activityPayloadMock.company_id = profile.company_id
+      }
+      await supabase.from('activity_logs').insert(activityPayloadMock)
       navigate('/approvals')
     }
     setSubmitting(false)

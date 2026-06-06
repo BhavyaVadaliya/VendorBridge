@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
 import Layout from '../components/Layout'
 import { Settings as SettingsIcon, Shield, User, Plus, X, Check } from 'lucide-react'
 
@@ -8,6 +9,7 @@ const ALL_MODULES = [
 ]
 
 export default function Settings() {
+  const { profile: currentAdminProfile } = useAuth()
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [isAddingUser, setIsAddingUser] = useState(false)
@@ -26,15 +28,24 @@ export default function Settings() {
 
   async function fetchUsers() {
     setLoading(true)
-    const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false })
+    let query = supabase.from('profiles').select('*').order('created_at', { ascending: false })
+    
+    // SaaS: Only fetch users belonging to the admin's company workspace
+    if (currentAdminProfile?.company_id) {
+      query = query.eq('company_id', currentAdminProfile.company_id)
+    }
+
+    const { data, error } = await query
     if (data) setUsers(data)
     setLoading(false)
   }
 
   useEffect(() => {
-    fetchUsers()
+    if (currentAdminProfile) {
+      fetchUsers()
+    }
     supabase.auth.getUser().then(({ data }) => setCurrentUserId(data?.user?.id))
-  }, [])
+  }, [currentAdminProfile])
 
   const togglePermission = (mod, currentPerms, setter) => {
     if (currentPerms.includes(mod)) {
@@ -60,13 +71,18 @@ export default function Settings() {
     }
 
     if (authData?.user) {
-      // 2. Insert into profiles with custom permissions
-      const { error: profileError } = await supabase.from('profiles').insert({
+      // 2. Insert into profiles with custom permissions AND the admin's company_id
+      const profilePayload = {
         id: authData.user.id,
         full_name: fullName,
         role: role,
         permissions: permissions
-      })
+      }
+      if (currentAdminProfile?.company_id) {
+        profilePayload.company_id = currentAdminProfile.company_id
+      }
+
+      const { error: profileError } = await supabase.from('profiles').insert(profilePayload)
 
       if (profileError) {
         // If "column permissions does not exist", handle gracefully

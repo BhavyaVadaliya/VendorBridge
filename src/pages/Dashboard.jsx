@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
 import Layout from '../components/Layout'
 import {
   FileText,
@@ -22,7 +23,7 @@ const statusColors = {
 
 export default function Dashboard() {
   const navigate = useNavigate()
-  const [profile, setProfile] = useState(null)
+  const { profile } = useAuth()
   const [stats, setStats] = useState({
     activeRFQs: 0,
     pendingApprovals: 0,
@@ -35,23 +36,17 @@ export default function Dashboard() {
 
   async function fetchDashboardData() {
     try {
-      // 1. Fetch user profile info
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { data } = await supabase
-          .from('profiles')
-          .select('full_name, role')
-          .eq('id', user.id)
-          .single()
-        setProfile(data || { full_name: user.email.split('@')[0], role: 'Officer' })
+      if (!profile?.company_id) {
+        setLoading(false)
+        return
       }
 
-      // 2. Fetch stats
+      // 2. Fetch stats with strict company_id isolation
       const [rfqs, approvals, pos, allPos] = await Promise.all([
-        supabase.from('rfqs').select('*', { count: 'exact', head: true }).eq('status', 'Open'),
-        supabase.from('purchase_orders').select('*', { count: 'exact', head: true }).eq('status', 'Pending'),
-        supabase.from('purchase_orders').select('grand_total').eq('status', 'Approved'),
-        supabase.from('purchase_orders').select('*, quotations(*, vendors(*))').order('created_at', { ascending: false })
+        supabase.from('rfqs').select('*', { count: 'exact', head: true }).eq('status', 'Open').eq('company_id', profile.company_id),
+        supabase.from('purchase_orders').select('*', { count: 'exact', head: true }).eq('status', 'Pending').eq('company_id', profile.company_id),
+        supabase.from('purchase_orders').select('grand_total').eq('status', 'Approved').eq('company_id', profile.company_id),
+        supabase.from('purchase_orders').select('*, quotations(*, vendors(*))').eq('company_id', profile.company_id).order('created_at', { ascending: false })
       ])
 
       const totalSpendAmount = pos.data?.reduce((sum, p) => sum + (Number(p.grand_total) || 0), 0) || 0
@@ -116,19 +111,21 @@ export default function Dashboard() {
   }
 
   useEffect(() => {
-    fetchDashboardData()
+    if (profile?.company_id) {
+      fetchDashboardData()
+    }
 
     // Real-time updates subscription
     const channel = supabase
       .channel('dashboard-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'purchase_orders' }, fetchDashboardData)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'rfqs' }, fetchDashboardData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'purchase_orders', filter: `company_id=eq.${profile?.company_id}` }, fetchDashboardData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'rfqs', filter: `company_id=eq.${profile?.company_id}` }, fetchDashboardData)
       .subscribe()
 
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [])
+  }, [profile?.company_id])
 
   const currentDate = new Date().toLocaleDateString('en-IN', {
     weekday: 'long',

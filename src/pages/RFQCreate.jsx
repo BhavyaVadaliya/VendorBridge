@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
 import Layout from '../components/Layout'
 import {
   FileText,
@@ -35,6 +36,7 @@ function formatBytes(bytes) {
 
 export default function RFQCreate() {
   const navigate = useNavigate()
+  const { profile } = useAuth()
   const [step, setStep] = useState(1)
   const [vendors, setVendors] = useState([])
   const [selectedVendors, setSelectedVendors] = useState([])
@@ -67,18 +69,22 @@ export default function RFQCreate() {
 
   useEffect(() => {
     async function fetchActiveVendors() {
+      if (!profile?.company_id) return
       setLoadingVendors(true)
       const { data, error } = await supabase
         .from('vendors')
         .select('*')
         .eq('status', 'Active')
+        .eq('company_id', profile.company_id)
       if (!error && data) {
         setVendors(data)
       }
       setLoadingVendors(false)
     }
-    fetchActiveVendors()
-  }, [])
+    if (profile?.company_id) {
+      fetchActiveVendors()
+    }
+  }, [profile?.company_id])
 
   // ── Attachment handlers ────────────────────────────────────────────
   const handleFiles = (files) => {
@@ -153,7 +159,7 @@ export default function RFQCreate() {
     const { data: { user } } = await supabase.auth.getUser()
     
     // 1. Create RFQ record
-    const { data: rfqData, error: rfqError } = await supabase.from('rfqs').insert({
+    const rfqPayload = {
       title: data.title,
       category: data.category,
       priority: data.priority,
@@ -161,7 +167,12 @@ export default function RFQCreate() {
       description: data.description,
       status: status,
       created_by: user?.id
-    }).select().single()
+    }
+    if (profile?.company_id) {
+      rfqPayload.company_id = profile.company_id
+    }
+
+    const { data: rfqData, error: rfqError } = await supabase.from('rfqs').insert(rfqPayload).select().single()
 
     if (rfqError) {
       alert(rfqError.message)
@@ -170,11 +181,16 @@ export default function RFQCreate() {
     }
 
     // 2. Log activity
-    await supabase.from('activity_logs').insert({
+    const activityPayload = {
       action: `RFQ created: ${data.title} (Status: ${status})`,
       entity_type: 'rfq',
       user_id: user?.id
-    })
+    }
+    if (profile?.company_id) {
+      activityPayload.company_id = profile.company_id
+    }
+
+    await supabase.from('activity_logs').insert(activityPayload)
 
     // In a production app we would write RFQ items and vendors to a relational table, 
     // but this setup follows the CRUD pattern per the data layer specification.

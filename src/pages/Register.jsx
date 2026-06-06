@@ -16,7 +16,8 @@ export default function Register() {
       email: '',
       phone: '',
       password: '',
-      role: 'officer',
+      password: '',
+      companyName: '',
       country: 'India',
       additionalInfo: ''
     }
@@ -42,14 +43,31 @@ export default function Register() {
     }
 
     if (data?.user) {
-      // 2. Insert into profiles table
-      const { error: profileError } = await supabase.from('profiles').insert({
+      // 2. Provision new Tenant (Company)
+      let finalCompanyId = null
+      const { data: companyData, error: companyError } = await supabase.from('companies').insert({
+        name: values.companyName || `${values.firstName}'s Company`
+      }).select().single()
+
+      if (!companyError && companyData) {
+        finalCompanyId = companyData.id
+      } else if (companyError && companyError.message.includes('relation "companies" does not exist')) {
+        console.warn('Companies table missing. Falling back to single-tenant mode.')
+      }
+
+      // 3. Insert into profiles table as Admin of the new company
+      const profilePayload = {
         id: data.user.id,
         full_name: `${values.firstName} ${values.lastName}`.trim(),
-        role: values.role,
+        role: 'admin', // Creator is automatically the Admin
         phone: values.phone,
         country: values.country
-      })
+      }
+      if (finalCompanyId) {
+        profilePayload.company_id = finalCompanyId
+      }
+
+      const { error: profileError } = await supabase.from('profiles').insert(profilePayload)
 
       if (profileError) {
         setRegError(profileError.message)
@@ -172,18 +190,16 @@ export default function Register() {
               {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
             </div>
 
-            {/* Role Dropdown */}
+            {/* Company Name */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Role</label>
-              <select
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white transition"
-                {...register('role')}
-              >
-                <option value="admin">Admin</option>
-                <option value="officer">Procurement Officer</option>
-                <option value="manager">Manager / Approver</option>
-                <option value="vendor">Vendor</option>
-              </select>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Company Name (Workspace)</label>
+              <input
+                type="text"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
+                placeholder="Acme Corp"
+                {...register('companyName', { required: 'Company Name is required' })}
+              />
+              {errors.companyName && <p className="text-red-500 text-xs mt-1">{errors.companyName.message}</p>}
             </div>
 
             {/* Country */}
