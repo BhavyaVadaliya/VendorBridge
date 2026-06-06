@@ -8,7 +8,7 @@ solve :- done (click-to-upload + drag-and-drop + file validation + remove button
 
 3. Quotation page - Quotation comparison missing as per given mock (screen 7)
 
-solve :- 
+solve :- done (LOWEST PRICE badge, Vendor Rating row, Reject All btn, note text, lowest price/delivery highlights)
 
 4. Approval page :- approval workflow is not correct
 
