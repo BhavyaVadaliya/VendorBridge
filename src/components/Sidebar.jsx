@@ -12,7 +12,8 @@ import {
   Clock,
   LogOut,
   User,
-  Shield
+  Shield,
+  Settings
 } from 'lucide-react'
 
 const navItems = [
@@ -24,6 +25,7 @@ const navItems = [
   { label: 'Invoices',   path: '/purchase-orders',  icon: Receipt,         match: '/purchase-orders' },
   { label: 'Reports',    path: '/reports',          icon: BarChart3,       match: '/reports' },
   { label: 'Activity',   path: '/activity',         icon: Clock,           match: '/activity' },
+  { label: 'Settings',   path: '/settings',         icon: Settings,        match: '/settings' },
 ]
 
 export default function Sidebar() {
@@ -37,14 +39,14 @@ export default function Sidebar() {
       if (user) {
         const { data, error } = await supabase
           .from('profiles')
-          .select('full_name, role')
+          .select('full_name, role, permissions')
           .eq('id', user.id)
           .single()
         
         if (!error && data) {
           setProfile({ ...data, email: user.email })
         } else {
-          setProfile({ full_name: user.email.split('@')[0], role: 'Officer', email: user.email })
+          setProfile({ full_name: user.email.split('@')[0], role: 'Officer', email: user.email, permissions: null })
         }
       }
     }
@@ -56,6 +58,20 @@ export default function Sidebar() {
     navigate('/')
   }
 
+  // Filter Nav Items based on Granular Permissions
+  const filteredNavItems = navItems.filter(item => {
+    if (profile?.role === 'admin') return true; // Admins always see everything
+    if (item.label === 'Settings') return false; // Non-admins never see Settings
+    
+    // If permissions array exists, check it
+    if (profile?.permissions && Array.isArray(profile.permissions)) {
+      return profile.permissions.includes(item.label)
+    }
+    
+    // Fallback if permissions column doesn't exist yet or is null
+    return true;
+  })
+
   return (
     <aside className="w-56 bg-[#0f1117] text-gray-400 flex flex-col h-screen shrink-0 border-r border-gray-800">
       {/* Brand logo */}
@@ -65,7 +81,7 @@ export default function Sidebar() {
 
       {/* Nav items */}
       <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
-        {navItems.map((item, index) => {
+        {filteredNavItems.map((item, index) => {
           const Icon = item.icon
           const isActive = location.pathname.startsWith(item.match)
           return (
