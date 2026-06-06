@@ -29,7 +29,10 @@ export default function Register() {
     // 1. Sign up user
     const { data, error: signUpError } = await supabase.auth.signUp({
       email: values.email,
-      password: values.password
+      password: values.password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/dashboard`
+      }
     })
 
     if (signUpError) {
