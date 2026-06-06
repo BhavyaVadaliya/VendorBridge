@@ -12,7 +12,8 @@ import {
   BarChart3,
   Clock,
   LogOut,
-  User
+  User,
+  Shield
 } from 'lucide-react'
 
 const navItems = [
@@ -84,6 +85,19 @@ export default function Sidebar() {
             </Link>
           )
         })}
+        {profile?.role === 'admin' && (
+          <Link
+            to="/admin"
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              location.pathname === '/admin'
+                ? 'bg-green-600 text-white'
+                : 'hover:bg-gray-800 hover:text-white'
+            }`}
+          >
+            <Shield className="w-4 h-4 shrink-0" />
+            <span>Admin Panel</span>
+          </Link>
+        )}
       </nav>
 
       {/* User profile & Logout */}

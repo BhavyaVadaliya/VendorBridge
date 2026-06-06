@@ -12,6 +12,7 @@ import ActivityLogs from './pages/ActivityLogs'
 import Reports from './pages/Reports'
 import ProtectedRoute from './components/ProtectedRoute'
 import { AuthProvider } from './context/AuthContext'
+import AdminPanel from './pages/AdminPanel'
 
 export default function App() {
   return (
@@ -92,6 +93,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <Reports />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute>
+              <AdminPanel />
             </ProtectedRoute>
           }
         />
